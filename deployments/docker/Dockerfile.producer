@@ -1,0 +1,15 @@
+FROM golang:1.25-bookworm AS build
+
+WORKDIR /src
+COPY pkg ./pkg
+COPY apps/kafka-producer ./apps/kafka-producer
+WORKDIR /src/apps/kafka-producer
+RUN CGO_ENABLED=0 go build -o /out/producer ./cmd
+
+FROM debian:bookworm-slim
+WORKDIR /app
+COPY --from=build /out/producer /app/producer
+COPY apps/kafka-producer/configs-yml /app/configs-yml
+ENV PRODUCER_CONFIG_ADDRESS_STRING=configs-yml/producer.yml
+ENV LOGGER_CONFIG_ADDRESS_STRING=configs-yml/logger.yml
+ENTRYPOINT ["/app/producer"]

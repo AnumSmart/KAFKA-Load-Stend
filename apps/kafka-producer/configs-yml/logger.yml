@@ -1,0 +1,4 @@
+level: info
+format: text
+add_source: false
+service: kafka-producer

@@ -1,0 +1,8 @@
+**/.git
+**/.idea
+**/.vscode
+**/*.exe
+**/*.test
+**/coverage.out
+**/.env
+**/go.work.sum

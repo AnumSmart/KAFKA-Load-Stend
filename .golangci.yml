@@ -1,0 +1,26 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - revive
+    - misspell
+  settings:
+    revive:
+      severity: warning
+  exclusions:
+    generated: lax
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+
+run:
+  timeout: 5m
+  tests: true
+
+output:
+  print-issued-lines: true

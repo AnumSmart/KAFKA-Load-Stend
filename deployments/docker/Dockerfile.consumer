@@ -1,0 +1,15 @@
+FROM golang:1.25-bookworm AS build
+
+WORKDIR /src
+COPY pkg ./pkg
+COPY apps/kafka-consumer ./apps/kafka-consumer
+WORKDIR /src/apps/kafka-consumer
+RUN CGO_ENABLED=0 go build -o /out/consumer ./cmd
+
+FROM debian:bookworm-slim
+WORKDIR /app
+COPY --from=build /out/consumer /app/consumer
+COPY apps/kafka-consumer/configs-yml /app/configs-yml
+ENV CONSUMER_CONFIG_ADDRESS_STRING=configs-yml/consumer.yml
+ENV LOGGER_CONFIG_ADDRESS_STRING=configs-yml/logger.yml
+ENTRYPOINT ["/app/consumer"]

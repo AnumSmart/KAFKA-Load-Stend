@@ -1,0 +1,16 @@
+brokers:
+  - localhost:9092
+  - localhost:9094
+  - localhost:9096
+topic: load-test
+
+producer:
+  linger: 50ms
+  batch_max_bytes: 1048576
+  compression: snappy
+  max_buffered_records: 1000000
+  required_acks: leader
+  disable_idempotency: true
+  message_count: 100000
+  message_template: 'привет - я сообщение #%d'
+  metrics_addr: ':8081'
