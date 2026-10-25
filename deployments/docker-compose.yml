@@ -1,0 +1,352 @@
+services:
+  kafka1:
+    image: ${KAFKA_IMAGE:-apache/kafka:4.0.0}
+    container_name: kafka1
+    hostname: kafka1
+    ports:
+      - '9092:9092'
+    environment:
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID:-MkU3OEVBNTcwNTJENDM2Qk}
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://:19092,EXTERNAL://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka1:19092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_HEAP_OPTS: '${KAFKA_HEAP_OPTS:--Xmx512m -Xms512m}'
+      KAFKA_JMX_PORT: 9999
+      KAFKA_JMX_HOSTNAME: kafka1
+      KAFKA_JMX_OPTS: '-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.rmi.port=9999 -Djava.rmi.server.hostname=kafka1'
+    volumes:
+      - kafka1-data:/var/lib/kafka/data
+    healthcheck:
+      test: ['CMD-SHELL', "bash -c '</dev/tcp/localhost/19092'"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+    networks:
+      - kafka-stend
+
+  kafka2:
+    image: ${KAFKA_IMAGE:-apache/kafka:4.0.0}
+    container_name: kafka2
+    hostname: kafka2
+    ports:
+      - '9094:9092'
+    environment:
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID:-MkU3OEVBNTcwNTJENDM2Qk}
+      KAFKA_NODE_ID: 2
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://:19092,EXTERNAL://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka2:19092,EXTERNAL://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_HEAP_OPTS: '${KAFKA_HEAP_OPTS:--Xmx512m -Xms512m}'
+      KAFKA_JMX_PORT: 9999
+      KAFKA_JMX_HOSTNAME: kafka2
+      KAFKA_JMX_OPTS: '-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.rmi.port=9999 -Djava.rmi.server.hostname=kafka2'
+    volumes:
+      - kafka2-data:/var/lib/kafka/data
+    healthcheck:
+      test: ['CMD-SHELL', "bash -c '</dev/tcp/localhost/19092'"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+    networks:
+      - kafka-stend
+
+  kafka3:
+    image: ${KAFKA_IMAGE:-apache/kafka:4.0.0}
+    container_name: kafka3
+    hostname: kafka3
+    ports:
+      - '9096:9092'
+    environment:
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID:-MkU3OEVBNTcwNTJENDM2Qk}
+      KAFKA_NODE_ID: 3
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://:19092,EXTERNAL://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka3:19092,EXTERNAL://localhost:9096
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_HEAP_OPTS: '${KAFKA_HEAP_OPTS:--Xmx512m -Xms512m}'
+      KAFKA_JMX_PORT: 9999
+      KAFKA_JMX_HOSTNAME: kafka3
+      KAFKA_JMX_OPTS: '-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.rmi.port=9999 -Djava.rmi.server.hostname=kafka3'
+    volumes:
+      - kafka3-data:/var/lib/kafka/data
+    healthcheck:
+      test: ['CMD-SHELL', "bash -c '</dev/tcp/localhost/19092'"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+    networks:
+      - kafka-stend
+
+  kafka-init:
+    image: ${KAFKA_IMAGE:-apache/kafka:4.0.0}
+    container_name: kafka-init
+    depends_on:
+      kafka1:
+        condition: service_healthy
+      kafka2:
+        condition: service_healthy
+      kafka3:
+        condition: service_healthy
+    entrypoint: ['/bin/bash', '-c']
+    restart: 'no'
+    command:
+      - |
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka1:19092 \
+          --create --if-not-exists --topic ${TOPIC_NAME:-load-test} \
+          --partitions ${TOPIC_PARTITIONS:-6} --replication-factor ${TOPIC_RF:-3}
+        echo "topic ${TOPIC_NAME:-load-test} is ready"
+    networks:
+      - kafka-stend
+
+  jmx-exporter-1:
+    image: bitnamilegacy/jmx-exporter:latest
+    container_name: jmx-exporter-1
+    command: ['7071', '/opt/bitnami/jmx-exporter/kafka-jmx-exporter.yml']
+    ports:
+      - '7071:7071'
+    volumes:
+      - ./jmx-exporter/kafka-jmx-exporter-1.yml:/opt/bitnami/jmx-exporter/kafka-jmx-exporter.yml:ro
+    depends_on:
+      kafka1:
+        condition: service_healthy
+    networks:
+      - kafka-stend
+
+  jmx-exporter-2:
+    image: bitnamilegacy/jmx-exporter:latest
+    container_name: jmx-exporter-2
+    command: ['7071', '/opt/bitnami/jmx-exporter/kafka-jmx-exporter.yml']
+    ports:
+      - '7072:7071'
+    volumes:
+      - ./jmx-exporter/kafka-jmx-exporter-2.yml:/opt/bitnami/jmx-exporter/kafka-jmx-exporter.yml:ro
+    depends_on:
+      kafka2:
+        condition: service_healthy
+    networks:
+      - kafka-stend
+
+  jmx-exporter-3:
+    image: bitnamilegacy/jmx-exporter:latest
+    container_name: jmx-exporter-3
+    command: ['7071', '/opt/bitnami/jmx-exporter/kafka-jmx-exporter.yml']
+    ports:
+      - '7073:7071'
+    volumes:
+      - ./jmx-exporter/kafka-jmx-exporter-3.yml:/opt/bitnami/jmx-exporter/kafka-jmx-exporter.yml:ro
+    depends_on:
+      kafka3:
+        condition: service_healthy
+    networks:
+      - kafka-stend
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:latest
+    container_name: kafka-exporter
+    command:
+      - '--kafka.server=kafka1:19092'
+      - '--kafka.server=kafka2:19092'
+      - '--kafka.server=kafka3:19092'
+    ports:
+      - '9308:9308'
+    depends_on:
+      kafka1:
+        condition: service_healthy
+      kafka2:
+        condition: service_healthy
+      kafka3:
+        condition: service_healthy
+    networks:
+      - kafka-stend
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - '9090:9090'
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    depends_on:
+      - jmx-exporter-1
+      - jmx-exporter-2
+      - jmx-exporter-3
+      - kafka-exporter
+    networks:
+      - kafka-stend
+
+  consumer-1:
+    build:
+      context: ..
+      dockerfile: deployments/docker/Dockerfile.consumer
+    container_name: kafka-consumer-1
+    environment:
+      KAFKA_BROKERS: kafka1:19092,kafka2:19092,kafka3:19092
+      KAFKA_TOPIC: ${TOPIC_NAME:-load-test}
+      CONSUMER_GROUP_ID: group-1
+      CONSUMER_START_OFFSET: latest
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    networks:
+      - kafka-stend
+
+  consumer-2:
+    build:
+      context: ..
+      dockerfile: deployments/docker/Dockerfile.consumer
+    container_name: kafka-consumer-2
+    environment:
+      KAFKA_BROKERS: kafka1:19092,kafka2:19092,kafka3:19092
+      KAFKA_TOPIC: ${TOPIC_NAME:-load-test}
+      CONSUMER_GROUP_ID: group-2
+      CONSUMER_START_OFFSET: latest
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    networks:
+      - kafka-stend
+
+  consumer-3:
+    build:
+      context: ..
+      dockerfile: deployments/docker/Dockerfile.consumer
+    container_name: kafka-consumer-3
+    environment:
+      KAFKA_BROKERS: kafka1:19092,kafka2:19092,kafka3:19092
+      KAFKA_TOPIC: ${TOPIC_NAME:-load-test}
+      CONSUMER_GROUP_ID: group-3
+      CONSUMER_START_OFFSET: latest
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    networks:
+      - kafka-stend
+
+  producer:
+    build:
+      context: ..
+      dockerfile: deployments/docker/Dockerfile.producer
+    container_name: kafka-producer
+    ports:
+      - '8081:8081'
+    environment:
+      KAFKA_BROKERS: kafka1:19092,kafka2:19092,kafka3:19092
+      KAFKA_TOPIC: ${TOPIC_NAME:-load-test}
+      MESSAGE_COUNT: ${MESSAGE_COUNT:-100000}
+      PRODUCER_LINGER: ${PRODUCER_LINGER:-}
+      PRODUCER_BATCH_MAX_BYTES: ${PRODUCER_BATCH_MAX_BYTES:-}
+      PRODUCER_REQUIRED_ACKS: ${PRODUCER_REQUIRED_ACKS:-}
+      PRODUCER_DISABLE_IDEMPOTENCY: ${PRODUCER_DISABLE_IDEMPOTENCY:-}
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      consumer-1:
+        condition: service_started
+      consumer-2:
+        condition: service_started
+      consumer-3:
+        condition: service_started
+    entrypoint: ['/bin/sh', '-c', 'sleep 8 && exec /app/producer']
+    restart: 'no'
+    networks:
+      - kafka-stend
+
+  kafka-ui:
+    image: ghcr.io/kafbat/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - '8080:8080'
+    environment:
+      DYNAMIC_CONFIG_ENABLED: 'true'
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka1:19092,kafka2:19092,kafka3:19092
+      KAFKA_CLUSTERS_0_READONLY: 'false'
+    depends_on:
+      kafka1:
+        condition: service_healthy
+      kafka2:
+        condition: service_healthy
+      kafka3:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - kafka-stend
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - '3000:3000'
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_AUTH_ANONYMOUS_ENABLED: 'true'
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/provisioning/dashboards/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./grafana/provisioning/dashboards/load-test.json:/var/lib/grafana/dashboards/load-test.json:ro
+    depends_on:
+      - prometheus
+    networks:
+      - kafka-stend
+
+volumes:
+  kafka1-data:
+  kafka2-data:
+  kafka3-data:
+
+networks:
+  kafka-stend:
+    driver: bridge

@@ -1,0 +1,90 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "targets": [
+        {
+          "expr": "sum(kafka_server_brokertopicmetrics_messagesinpersec_oneminuterate) or sum(rate(kafka_topic_partition_current_offset{topic=\"load-test\"}[1m]))",
+          "legendFormat": "MessagesInPerSec",
+          "refId": "A"
+        }
+      ],
+      "title": "MessagesInPerSec",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "Bps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "targets": [
+        {
+          "expr": "sum(kafka_server_brokertopicmetrics_bytesinpersec_oneminuterate)",
+          "legendFormat": "BytesInPerSec",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(kafka_server_brokertopicmetrics_bytesoutpersec_oneminuterate)",
+          "legendFormat": "BytesOutPerSec",
+          "refId": "B"
+        }
+      ],
+      "title": "BytesInPerSec / BytesOutPerSec",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "id": 3,
+      "targets": [
+        {
+          "expr": "sum by (consumergroup) (kafka_consumergroup_lag{consumergroup=~\"group-1|group-2|group-3\"})",
+          "legendFormat": "{{consumergroup}}",
+          "refId": "A"
+        }
+      ],
+      "title": "kafka_consumergroup_lag",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "id": 4,
+      "targets": [
+        {
+          "expr": "rate(producer_messages_acked_total[15s])",
+          "legendFormat": "acked/sec",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(producer_errors_total[15s])",
+          "legendFormat": "errors/sec",
+          "refId": "B"
+        }
+      ],
+      "title": "Producer acked / errors",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["kafka", "load-test"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Kafka load-test",
+  "uid": "kafka-load-test",
+  "version": 1
+}

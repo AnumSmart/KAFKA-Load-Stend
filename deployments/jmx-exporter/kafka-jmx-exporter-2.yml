@@ -1,0 +1,26 @@
+jmxUrl: service:jmx:rmi:///jndi/rmi://kafka2:9999/jmxrmi
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+whitelistObjectNames:
+  - kafka.server:type=BrokerTopicMetrics,*
+  - kafka.network:type=RequestMetrics,*
+rules:
+  - pattern: kafka.server<type=BrokerTopicMetrics, name=MessagesInPerSec><>OneMinuteRate
+    name: kafka_server_brokertopicmetrics_messagesinpersec_oneminuterate
+    type: GAUGE
+  - pattern: kafka.server<type=BrokerTopicMetrics, name=BytesInPerSec><>OneMinuteRate
+    name: kafka_server_brokertopicmetrics_bytesinpersec_oneminuterate
+    type: GAUGE
+  - pattern: kafka.server<type=BrokerTopicMetrics, name=BytesOutPerSec><>OneMinuteRate
+    name: kafka_server_brokertopicmetrics_bytesoutpersec_oneminuterate
+    type: GAUGE
+  - pattern: kafka.network<type=RequestMetrics, name=RequestQueueTimeMs, request=(.+)><>Mean
+    name: kafka_network_requestmetrics_requestqueuetimems_mean
+    labels:
+      request: "$1"
+    type: GAUGE
+  - pattern: kafka.network<type=RequestMetrics, name=LocalTimeMs, request=(.+)><>Mean
+    name: kafka_network_requestmetrics_localtimems_mean
+    labels:
+      request: "$1"
+    type: GAUGE
