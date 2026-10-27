@@ -31,13 +31,22 @@ func silentLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
+// TestDefaultOptionsMessageCountIs100k фиксирует целевой объём (PR #2).
+// Регресс: раньше DefaultOptions.MessageCount был 10_000_000.
+func TestDefaultOptionsMessageCountIs100k(t *testing.T) {
+	opts := DefaultOptions()
+	if opts.MessageCount != 100_000 {
+		t.Fatalf("default MessageCount = %d, want 100000", opts.MessageCount)
+	}
+}
+
 func TestRunCountsAcked(t *testing.T) {
 	client := &mockClient{}
 	opts := &ProducerOptions{
 		Topic:           "load-test",
 		MessageCount:    10,
 		MessageTemplate: "привет - я сообщение #%d",
-		ExpectedTotal:   10,
+		MetricsHold:     0,
 	}
 
 	p, err := NewBaseProducer(client, opts, silentLogger())
@@ -61,7 +70,7 @@ func TestRunCountsFailed(t *testing.T) {
 			promise(r, errors.New("broker error"))
 		},
 	}
-	opts := &ProducerOptions{MessageCount: 5, ExpectedTotal: 5, Topic: "load-test"}
+	opts := &ProducerOptions{MessageCount: 5, Topic: "load-test", MetricsHold: 0}
 
 	p, err := NewBaseProducer(client, opts, silentLogger())
 	if err != nil {
@@ -81,4 +90,81 @@ func TestNewBaseProducerRequiresClient(t *testing.T) {
 	if _, err := NewBaseProducer(nil, nil, silentLogger()); err == nil {
 		t.Fatal("expected error")
 	}
+}
+
+func TestRunUsesFixedMessageBytes(t *testing.T) {
+	var got int
+	client := &mockClient{
+		produceFn: func(_ context.Context, r *kgo.Record, promise func(*kgo.Record, error)) {
+			got = len(r.Value)
+			promise(r, nil)
+		},
+	}
+	opts := &ProducerOptions{
+		Topic:        "load-test",
+		MessageCount: 2,
+		MessageBytes: 102400,
+		MetricsHold:  0,
+	}
+
+	p, err := NewBaseProducer(client, opts, silentLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got != 102400 {
+		t.Fatalf("value length = %d, want 102400", got)
+	}
+}
+
+func TestValidateRejectsNegativeMessageBytes(t *testing.T) {
+	opts := &ProducerOptions{Topic: "t", MessageCount: 1, MessageBytes: -1}
+	if err := opts.Validate(); err == nil {
+		t.Fatal("expected error for message_bytes < 0")
+	}
+}
+
+func TestValidateRejectsZeroMessageCount(t *testing.T) {
+	opts := &ProducerOptions{Topic: "t", MessageCount: 0}
+	if err := opts.Validate(); err == nil {
+		t.Fatal("expected error for message_count=0")
+	}
+}
+
+func TestCloseDelegatesToClient(t *testing.T) {
+	closed := false
+	client := &mockClient{
+		produceFn: func(_ context.Context, r *kgo.Record, promise func(*kgo.Record, error)) {
+			promise(r, nil)
+		},
+	}
+	// Перехватываем Close через обёртку.
+	p, err := NewBaseProducer(&closeTrackingClient{mockClient: client, onClose: func() { closed = true }}, &ProducerOptions{
+		Topic:        "load-test",
+		MessageCount: 1,
+		MetricsHold:  0,
+	}, silentLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if !closed {
+		t.Fatal("expected client.Close to be called")
+	}
+}
+
+type closeTrackingClient struct {
+	*mockClient
+	onClose func()
+}
+
+func (c *closeTrackingClient) Close() {
+	if c.onClose != nil {
+		c.onClose()
+	}
+	c.mockClient.Close()
 }

@@ -4,6 +4,8 @@ lowercaseOutputLabelNames: true
 whitelistObjectNames:
   - kafka.server:type=BrokerTopicMetrics,*
   - kafka.network:type=RequestMetrics,*
+  - java.lang:type=Memory
+  - java.lang:type=OperatingSystem
 rules:
   - pattern: kafka.server<type=BrokerTopicMetrics, name=MessagesInPerSec><>OneMinuteRate
     name: kafka_server_brokertopicmetrics_messagesinpersec_oneminuterate
@@ -23,4 +25,26 @@ rules:
     name: kafka_network_requestmetrics_localtimems_mean
     labels:
       request: "$1"
+    type: GAUGE
+  # JVM heap / CPU процесса брокера (для экспериментов с heap и нагрузкой)
+  - pattern: 'java.lang<type=Memory><HeapMemoryUsage>used'
+    name: jvm_memory_bytes_used
+    labels:
+      area: heap
+    type: GAUGE
+  - pattern: 'java.lang<type=Memory><HeapMemoryUsage>committed'
+    name: jvm_memory_bytes_committed
+    labels:
+      area: heap
+    type: GAUGE
+  - pattern: 'java.lang<type=Memory><HeapMemoryUsage>max'
+    name: jvm_memory_bytes_max
+    labels:
+      area: heap
+    type: GAUGE
+  - pattern: 'java.lang<type=OperatingSystem><>ProcessCpuLoad'
+    name: jvm_process_cpu_load
+    type: GAUGE
+  - pattern: 'java.lang<type=OperatingSystem><>SystemCpuLoad'
+    name: jvm_system_cpu_load
     type: GAUGE

@@ -23,6 +23,10 @@ type BaseProducer struct {
 	produced atomic.Int64
 	acked    atomic.Int64
 	failed   atomic.Int64
+
+	// payload — общий value, если задан MessageBytes. Не меняется после
+	// создания: franz-go держит слайс до колбэка Produce.
+	payload []byte
 }
 
 func NewBaseProducer(client ProducerClient, opts *ProducerOptions, logger *slog.Logger) (*BaseProducer, error) {
@@ -43,7 +47,26 @@ func NewBaseProducer(client ProducerClient, opts *ProducerOptions, logger *slog.
 		client:  client,
 		options: opts,
 		logger:  logger,
+		payload: fixedPayload(opts.MessageBytes),
 	}, nil
+}
+
+// fixedPayload строит value заданной длины. Байты псевдослучайные, чтобы
+// snappy не схлопнул сообщение: в эксперименте важен размер до сжатия.
+// n <= 0 — пустой результат, Run тогда берёт MessageTemplate.
+func fixedPayload(n int) []byte {
+	if n <= 0 {
+		return nil
+	}
+	buf := make([]byte, n)
+	var x uint32 = 0x12345678
+	for i := range buf {
+		x ^= x << 13
+		x ^= x >> 17
+		x ^= x << 5
+		buf[i] = byte(x)
+	}
+	return buf
 }
 
 func (p *BaseProducer) Run(ctx context.Context) error {
@@ -51,6 +74,7 @@ func (p *BaseProducer) Run(ctx context.Context) error {
 	p.logger.Info("starting produce run",
 		"topic", p.options.Topic,
 		"message_count", p.options.MessageCount,
+		"message_bytes", p.options.MessageBytes,
 	)
 
 	for n := int64(1); n <= p.options.MessageCount; n++ {
@@ -59,9 +83,14 @@ func (p *BaseProducer) Run(ctx context.Context) error {
 			break
 		}
 
+		value := p.payload
+		if value == nil {
+			value = []byte(fmt.Sprintf(p.options.MessageTemplate, n))
+		}
+
 		record := &kgo.Record{
 			Topic: p.options.Topic,
-			Value: []byte(fmt.Sprintf(p.options.MessageTemplate, n)),
+			Value: value,
 		}
 
 		p.client.Produce(ctx, record, func(_ *kgo.Record, err error) {
@@ -108,18 +137,35 @@ func (p *BaseProducer) Run(ctx context.Context) error {
 		"avg_msg_sec", int64(avg),
 	)
 
-	if acked != p.options.ExpectedTotal {
+	// Единственный источник истины теперь MessageCount — ExpectedTotal
+	// удалён в этом PR, чтобы не было двух разных цифр.
+	if acked != p.options.MessageCount {
 		p.logger.Warn("acked count differs from expected",
 			"acked", acked,
-			"expected", p.options.ExpectedTotal,
+			"expected", p.options.MessageCount,
 			"failed", failed,
 		)
+	}
+
+	// Держим /metrics живым после короткого прогона, чтобы Prometheus
+	// (scrape_interval 5s) успел снять хотя бы 2–3 сэмпла.
+	if hold := p.options.MetricsHold; hold > 0 {
+		p.logger.Info("holding metrics endpoint for scrape",
+			"duration", hold.String(),
+		)
+		select {
+		case <-time.After(hold):
+		case <-ctx.Done():
+			p.logger.Info("metrics hold interrupted by context")
+		}
 	}
 
 	return nil
 }
 
+// Close закрывает underlying Kafka-клиент. Идемпотентен на стороне kgo.
 func (p *BaseProducer) Close() error {
+	p.client.Close()
 	return nil
 }
 

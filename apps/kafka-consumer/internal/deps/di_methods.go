@@ -3,6 +3,7 @@ package deps
 import (
 	"fmt"
 	"kafka-consumer/internal/consumer"
+	"time"
 
 	franzgoconsumer "pkg/kafka/franz-go-consumer"
 	"pkg/logger"
@@ -64,13 +65,15 @@ func (c *Container) initKafkaClient() error {
 }
 
 // initConsumer создаёт BaseConsumer с CountHandler и регистрирует closer,
-// который вызовет Shutdown. Порядок закрытия (в Container.Close — обратный
-// порядку регистрации) гарантирует, что consumer.Shutdown() выполнится
-// ДО client.Close(), иначе возможна гонка CommitRecords vs Close.
+// который вызовет Shutdown. Shutdown не закрывает *kgo.Client — только
+// останавливает цикл и ждёт currentBatch==0. Порядок закрытия
+// (Container.Close — обратный порядку регистрации): Shutdown ДО client.Close.
 func (c *Container) initConsumer() error {
 	handler := consumer.NewCountHandler(c.logger, c.config.KafkaClientConfig.Consumer.GroupID)
 	opts := franzgoconsumer.DefaultOptions()
 	opts.MaxBatchSize = c.config.KafkaClientConfig.Consumer.MaxBatchSize
+	// Согласовано с GracefulShutdownTimeout в cmd (30s).
+	opts.ShutdownTimeout = 30 * time.Second
 
 	base, err := franzgoconsumer.NewBaseConsumer(
 		franzgoconsumer.NewKafkaClientAdapter(c.kafkaClient),

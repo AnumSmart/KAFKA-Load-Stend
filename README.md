@@ -79,6 +79,15 @@ MESSAGE_COUNT=10000 make producer
 | `make infra`           | Только инфра: брокеры, топик, экспортеры, Prometheus, Grafana, UI   |
 | `make consumers`       | Поднять (или перезапустить) только три реплики консьюмера           |
 | `make producer`        | Прогнать один продюсер (`docker compose run --rm --service-ports`)  |
+| `make exp-baseline`    | Эксперимент 1: baseline (после `make infra`)                         |
+| `make exp-linger-100`  | Эксперимент 2: linger 100 ms                                         |
+| `make exp-linger-200`  | Эксперимент 3: linger 200 ms                                         |
+| `make exp-batch-2mb`   | Эксперимент 4: batch 2 MB                                            |
+| `make exp-acks-all`    | Эксперимент 5: `required_acks=all`                                   |
+| `make exp-idempotent`  | Эксперимент 6: идемпотентный продюсер                                |
+| `make exp-partitions-12` | Эксперимент 7: топик до 12 партиций, затем baseline-прогон         |
+| `make exp-messages-700k` | Эксперимент 8: 700 000 сообщений                                 |
+| `make exp-message-30kb` | Эксперимент 9: 100 000 сообщений по 30 КБ несжатых              |
 | `make load`            | Поднять консьюмеров + прогнать продюсера (требует `make infra`)     |
 | `make status`          | `docker compose ps`                                                 |
 | `make topic-describe`  | Описание топика `load-test`                                         |
@@ -145,7 +154,21 @@ NUM_NETWORK_THREADS до cpus + 1 и heap до 1–2 ГБ
 
 Меняйте один параметр за прогон. Остальное фиксируйте.
 
-Через env (удобнее, чем править YAML). Значения по умолчанию берутся из
+После `make infra` каждый прогон — отдельная цель. Она поднимает консьюмеры
+и передаёт полный baseline в контейнер продюсера, меняя только свой параметр.
+Таблица и смысл строк: [docs/experiments.md](docs/experiments.md).
+
+```powershell
+make infra
+make exp-baseline
+make exp-linger-100
+```
+
+`make exp-partitions-12` увеличивает партиции `load-test` до 12. Это не
+откатывается до удаления томов, поэтому его лучше гонять последним.
+
+Те же параметры можно задать через env, без отдельных целей. Значения по
+умолчанию берутся из
 deployments/.env.example (Makefile передаёт --env-file deployments/.env.example);
 переменные на команду (MESSAGE_COUNT=10000 make producer) переопределяют их:
 
@@ -156,19 +179,23 @@ deployments/.env.example (Makefile передаёт --env-file deployments/.env.
 | `PRODUCER_COMPRESSION`         | `snappy`           | Кодек: `none`/`gzip`/`snappy`/`lz4`/`zstd` |
 | `PRODUCER_REQUIRED_ACKS`       | `all` или `leader` | Надёжность vs throughput                   |
 | `PRODUCER_DISABLE_IDEMPOTENCY` | `true`             | Снять лимит идемпотентного продюсера       |
-| `PRODUCER_METRICS_ADDR`        | `:8081`            | Адрес `/metrics` продюсера                 |
-| `CONSUMER_METRICS_ADDR`        | `:8082`            | Адрес `/metrics` консьюмера                |
-| `MESSAGE_COUNT`                | `100000`           | Число сообщений                            |
-| `TOPIC_NAME`                   | `load-test`        | Имя топика                                 |
-| `TOPIC_PARTITIONS`             | `6`                | Число партиций (только при создании)       |
-| `TOPIC_RF`                     | `3`                | Replication factor (только при создании)   |
+| `PRODUCER_METRICS_ADDR`          | `:8081`            | Адрес `/metrics` продюсера                 |
+| `PRODUCER_METRICS_HOLD`          | `20s`              | Пауза после Flush под scrape Prometheus    |
+| `PRODUCER_MAX_BUFFERED_RECORDS`  | `1000000`          | Лимит буфера franz-go                      |
+| `CONSUMER_METRICS_ADDR`          | `:8082`            | Адрес `/metrics` консьюмера                |
+| `CONSUMER_START_OFFSET`          | `earliest`         | Старт новой группы: `earliest`/`latest`    |
+| `MESSAGE_COUNT`                  | `100000`           | Число сообщений                            |
+| `PRODUCER_MESSAGE_BYTES`     | `30720`            | Длина value до сжатия, байт. `0` — шаблон  |
+| `TOPIC_NAME`                     | `load-test`        | Имя топика                                 |
+| `TOPIC_PARTITIONS`               | `6`                | Число партиций (только при создании)       |
+| `TOPIC_RF`                       | `3`                | Replication factor (только при создании)   |
 
 CONSUMER_GROUP_ID зашит в deployments/docker-compose.yml как load-test-group
 для всех трёх Docker-реплик; тот же load-test-group используют локальные
 цели make consumerN-local. Это даёт корректное партиционирование: 6 партиций
 делятся между членами группы (по 2 на реплику при трёх членах). Если поменять
 имя группы у всех реплик — при следующем запуске появится новая группа и чтение
-начнётся «с нуля» (по CONSUMER_START_OFFSET=latest — только с новых сообщений).
+начнётся с начала топика (`CONSUMER_START_OFFSET=earliest`).
 Если задать разные имена — получите N× амплификацию чтения (это отдельный
 эксперимент, он искажает картину нормального потребления).
 
@@ -191,7 +218,8 @@ make down
 
 make down останавливает контейнеры, но тома сохраняются — offsets и
 сообщения топика остаются на месте. При следующем make up консьюмеры
-продолжат с сохранённых позиций (по latest — только с новых сообщений).
+продолжат с сохранённых позиций группы; `earliest`/`latest` применяются
+только если у группы ещё нет закоммиченного оффсета.
 
 ## Полный сброс (удаляет тома Kafka, offsets и топик):
 

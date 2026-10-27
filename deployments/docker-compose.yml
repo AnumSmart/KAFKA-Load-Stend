@@ -298,7 +298,7 @@ services:
       KAFKA_BROKERS: kafka1:19092,kafka2:19092,kafka3:19092
       KAFKA_TOPIC: ${TOPIC_NAME:-load-test}
       CONSUMER_GROUP_ID: load-test-group # одна общая группа для всех трёх консьюмеров
-      CONSUMER_START_OFFSET: latest
+      CONSUMER_START_OFFSET: earliest
       CONSUMER_METRICS_ADDR: ':8082'
     depends_on:
       kafka-init:
@@ -325,7 +325,7 @@ services:
       KAFKA_BROKERS: kafka1:19092,kafka2:19092,kafka3:19092
       KAFKA_TOPIC: ${TOPIC_NAME:-load-test}
       CONSUMER_GROUP_ID: load-test-group # одна общая группа для всех трёх консьюмеров
-      CONSUMER_START_OFFSET: latest
+      CONSUMER_START_OFFSET: earliest
       CONSUMER_METRICS_ADDR: ':8082'
     depends_on:
       kafka-init:
@@ -352,7 +352,7 @@ services:
       KAFKA_BROKERS: kafka1:19092,kafka2:19092,kafka3:19092
       KAFKA_TOPIC: ${TOPIC_NAME:-load-test}
       CONSUMER_GROUP_ID: load-test-group # одна общая группа для всех трёх консьюмеров
-      CONSUMER_START_OFFSET: latest
+      CONSUMER_START_OFFSET: earliest
       CONSUMER_METRICS_ADDR: ':8082'
     depends_on:
       kafka-init:
@@ -379,12 +379,15 @@ services:
       KAFKA_BROKERS: kafka1:19092,kafka2:19092,kafka3:19092
       KAFKA_TOPIC: ${TOPIC_NAME:-load-test}
       MESSAGE_COUNT: ${MESSAGE_COUNT:-100000}
+      PRODUCER_MESSAGE_BYTES: ${PRODUCER_MESSAGE_BYTES:-}
       PRODUCER_LINGER: ${PRODUCER_LINGER:-}
       PRODUCER_BATCH_MAX_BYTES: ${PRODUCER_BATCH_MAX_BYTES:-}
       PRODUCER_REQUIRED_ACKS: ${PRODUCER_REQUIRED_ACKS:-}
       PRODUCER_DISABLE_IDEMPOTENCY: ${PRODUCER_DISABLE_IDEMPOTENCY:-}
       PRODUCER_COMPRESSION: ${PRODUCER_COMPRESSION:-}
       PRODUCER_METRICS_ADDR: ${PRODUCER_METRICS_ADDR:-}
+      PRODUCER_MAX_BUFFERED_RECORDS: ${PRODUCER_MAX_BUFFERED_RECORDS:-}
+      PRODUCER_METRICS_HOLD: ${PRODUCER_METRICS_HOLD:-}
     depends_on:
       kafka-init:
         condition: service_completed_successfully
@@ -394,7 +397,8 @@ services:
         condition: service_started
       consumer-3:
         condition: service_started
-    entrypoint: ['/bin/sh', '-c', 'sleep 8 && exec /app/producer']
+    # sleep даёт группе время на join; start_offset=earliest страхует от потери.
+    entrypoint: ['/bin/sh', '-c', 'sleep 12 && exec /app/producer']
     restart: 'no'
     # Стандартный приоритет: продюсер — источник нагрузки, но не должен душить брокеров
     cpu_shares: 1024

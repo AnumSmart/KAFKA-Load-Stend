@@ -14,6 +14,12 @@ import (
 
 const GracefulShutdownTimeout = 30 * time.Second
 
+// waitForShutdown ждёт сигнал или ошибку Start, затем:
+//  1. отменяет ctx (если ещё не отменён),
+//  2. дожидается выхода Start через consumerErrors,
+//  3. вызывает Shutdown (ждёт обнуления currentBatch, клиент не закрывает).
+//
+// Закрытие *kgo.Client делает container.Close() в defer main — после Shutdown.
 func waitForShutdown(cancel context.CancelFunc, loadConsumer kafka.Consumer, consumerErrors <-chan error, logger *slog.Logger) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP)
@@ -24,16 +30,39 @@ func waitForShutdown(cancel context.CancelFunc, loadConsumer kafka.Consumer, con
 		if sig == syscall.SIGQUIT {
 			logger.Warn("SIGQUIT received, forcing shutdown")
 			cancel()
+			drainConsumerErrors(consumerErrors, 2*time.Second, logger)
 			return
 		}
 		cancel()
 	case err := <-consumerErrors:
 		if err != nil {
 			logger.Error("consumer error, initiating shutdown", "error", err)
+		} else {
+			logger.Info("consumer loop exited")
 		}
+		performGracefulShutdown(loadConsumer, logger)
+		return
 	}
 
+	// После cancel() ждём, пока Start выйдет из PollFetches/processRecords.
+	// Только потом Shutdown — иначе client.Close в DI гоняется с CommitRecords.
+	drainConsumerErrors(consumerErrors, GracefulShutdownTimeout, logger)
 	performGracefulShutdown(loadConsumer, logger)
+}
+
+func drainConsumerErrors(consumerErrors <-chan error, timeout time.Duration, logger *slog.Logger) {
+	select {
+	case err, ok := <-consumerErrors:
+		if ok && err != nil {
+			logger.Error("consumer finished with error", "error", err)
+		} else {
+			logger.Info("consumer loop stopped")
+		}
+	case <-time.After(timeout):
+		logger.Warn("timeout waiting for consumer loop to stop",
+			"timeout", timeout.String(),
+		)
+	}
 }
 
 func performGracefulShutdown(loadConsumer kafka.Consumer, logger *slog.Logger) {
