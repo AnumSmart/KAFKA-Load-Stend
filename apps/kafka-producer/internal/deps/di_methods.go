@@ -31,6 +31,9 @@ func (c *Container) initKafkaClient() error {
 		return err
 	}
 
+	kpromMetrics := franzgoproducer.NewKpromMetrics()
+	opts = append(opts, kgo.WithHooks(kpromMetrics))
+
 	client, err := kgo.NewClient(opts...)
 	if err != nil {
 		return fmt.Errorf("create kafka client: %w", err)
@@ -56,7 +59,6 @@ func (c *Container) initProducer() error {
 		Topic:           cfg.Topic,
 		MessageCount:    cfg.Producer.MessageCount,
 		MessageTemplate: cfg.Producer.MessageTemplate,
-		ExpectedTotal:   cfg.Producer.MessageCount,
 	}
 
 	producer, err := franzgoproducer.NewBaseProducer(
