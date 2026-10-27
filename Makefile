@@ -10,6 +10,19 @@ INFRA_SERVICES = kafka1 kafka2 kafka3 kafka-init \
 
 CONSUMER_SERVICES = consumer-1 consumer-2 consumer-3
 
+# Все консьюмеры (и Docker-реплики, и локальные) — в ОДНОЙ группе.
+# 6 партиций делятся между всеми активными членами группы.
+CONSUMER_GROUP = load-test-group
+
+# Порты /metrics консьюмеров на хосте. Совпадают с портами, которые
+# docker-compose пробрасывает наружу, чтобы переключение между
+# docker-репликами и локальными не ломало Prometheus/Grafana.
+# ВАЖНО: три локальные реплики должны занимать РАЗНЫЕ порты,
+# иначе вторая и третья упадут с "bind: address already in use".
+CONSUMER1_METRICS_ADDR = :8082
+CONSUMER2_METRICS_ADDR = :8083
+CONSUMER3_METRICS_ADDR = :8084
+
 GOLANGCI_LINT = golangci-lint
 LINT_TIMEOUT = 5m
 LINT_CONFIG = .golangci.yml
@@ -71,16 +84,33 @@ logs:
 	$(COMPOSE_CMD) logs -f producer consumer-1 consumer-2 consumer-3
 
 producer-local:
-	cd apps/kafka-producer && go run ./cmd
+	cd apps/kafka-producer && \
+		PRODUCER_METRICS_ADDR=:8081 \
+		go run ./cmd
 
+# --- Локальные консьюмеры в ТОЙ ЖЕ группе, что и docker-реплики. ---
+# Каждый запуск добавляет ещё одного члена в группу $(CONSUMER_GROUP).
+# Если параллельно работают docker-реплики — Kafka выполнит ребалансировку
+# и поделит 6 партиций между всеми членами группы.
+# Удобно запускать в трёх отдельных терминалах, чтобы получить 3 локальных
+# реплики, либо несколько раз в одном терминале (каждый — отдельный процесс).
 consumer1-local:
-	cd apps/kafka-consumer && CONSUMER_GROUP_ID=group-1 go run ./cmd
+	cd apps/kafka-consumer && \
+		CONSUMER_GROUP_ID=$(CONSUMER_GROUP) \
+		CONSUMER_METRICS_ADDR=$(CONSUMER1_METRICS_ADDR) \
+		go run ./cmd
 
 consumer2-local:
-	cd apps/kafka-consumer && CONSUMER_GROUP_ID=group-2 go run ./cmd
+	cd apps/kafka-consumer && \
+		CONSUMER_GROUP_ID=$(CONSUMER_GROUP) \
+		CONSUMER_METRICS_ADDR=$(CONSUMER2_METRICS_ADDR) \
+		go run ./cmd
 
 consumer3-local:
-	cd apps/kafka-consumer && CONSUMER_GROUP_ID=group-3 go run ./cmd
+	cd apps/kafka-consumer && \
+		CONSUMER_GROUP_ID=$(CONSUMER_GROUP) \
+		CONSUMER_METRICS_ADDR=$(CONSUMER3_METRICS_ADDR) \
+		go run ./cmd
 
 lint:
 	@echo "[INFO] Running linter..."
@@ -105,8 +135,9 @@ help:
 	@echo "  make producer        - Run one produce job in Docker"
 	@echo "  make logs            - Follow producer and consumer logs"
 	@echo "  make producer-local  - Run producer on the host"
-	@echo "  make consumer1-local - Run consumer group-1 on the host"
-	@echo "  make consumer2-local - Run consumer group-2 on the host"
-	@echo "  make consumer3-local - Run consumer group-3 on the host"
+	@echo "  make consumer1-local - Run consumer replica #1 (group $(CONSUMER_GROUP)) on the host"
+	@echo "  make consumer2-local - Run consumer replica #2 (same group) on the host"
+	@echo "  make consumer3-local - Run consumer replica #3 (same group) on the host"
+	@echo "  Local consumer metrics ports: $(CONSUMER1_METRICS_ADDR), $(CONSUMER2_METRICS_ADDR), $(CONSUMER3_METRICS_ADDR)"
 	@echo "  make lint            - Run linter"
 	@echo "  make test            - Run pkg tests"

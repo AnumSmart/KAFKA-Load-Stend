@@ -28,6 +28,8 @@ func main() {
 	logger := container.GetLogger()
 	defer gracefulShutdownResources(container, logger)
 
+	startMetricsServer(ctx, cfg.KafkaClientConfig.Consumer.MetricsAddr, logger)
+
 	loadConsumer := container.GetConsumer()
 	if loadConsumer == nil {
 		logger.Error("consumer is nil")

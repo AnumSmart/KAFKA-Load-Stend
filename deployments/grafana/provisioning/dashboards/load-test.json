@@ -48,7 +48,7 @@
       "id": 3,
       "targets": [
         {
-          "expr": "sum by (consumergroup) (kafka_consumergroup_lag{consumergroup=~\"group-1|group-2|group-3\"})",
+          "expr": "sum by (consumergroup) (kafka_consumergroup_lag{consumergroup=\"load-test-group\"})",
           "legendFormat": "{{consumergroup}}",
           "refId": "A"
         }
@@ -74,6 +74,149 @@
         }
       ],
       "title": "Producer acked / errors",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 24 },
+      "id": 5,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "up{job=~\"jmx|kafka-exporter|producer|consumer|prometheus\"}",
+          "legendFormat": "{{job}}/{{instance}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Targets health",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
+      "id": 6,
+      "targets": [
+        {
+          "expr": "rate(producer_messages_produced_total[30s])",
+          "legendFormat": "produced/s",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(producer_messages_acked_total[30s])",
+          "legendFormat": "acked/s",
+          "refId": "B"
+        },
+        {
+          "expr": "kgo_buffered_produce_records_total",
+          "legendFormat": "in-flight",
+          "refId": "C"
+        }
+      ],
+      "title": "Producer: produced / acked / in-flight",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
+      "id": 7,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(kgo_request_duration_e2e_seconds_bucket[1m])))",
+          "legendFormat": "p99 E2E",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(kgo_write_wait_seconds_bucket[1m])))",
+          "legendFormat": "p99 batch wait",
+          "refId": "B"
+        }
+      ],
+      "title": "Producer: latency p99",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 36 },
+      "id": 8,
+      "targets": [
+        {
+          "expr": "sum(rate(consumer_messages_processed_total[30s])) by (instance)",
+          "legendFormat": "{{instance}} processed/s",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(consumer_batches_total[30s])) by (instance)",
+          "legendFormat": "{{instance}} batches/s",
+          "refId": "B"
+        }
+      ],
+      "title": "Consumer: processing rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 36 },
+      "id": 9,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5,  sum by (le) (rate(consumer_batch_size_bucket[1m])))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(consumer_batch_size_bucket[1m])))",
+          "legendFormat": "p99",
+          "refId": "B"
+        }
+      ],
+      "title": "Consumer: batch size",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 44 },
+      "id": 10,
+      "targets": [
+        {
+          "expr": "producer_messages_produced_total",
+          "legendFormat": "produced (cumulative)",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(kafka_topic_partition_current_offset{topic=\"load-test\"})",
+          "legendFormat": "broker LEO",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(kafka_consumergroup_current_offset{consumergroup=\"load-test-group\"})",
+          "legendFormat": "consumer committed",
+          "refId": "C"
+        }
+      ],
+      "title": "End-to-end: produced → broker → consumer",
       "type": "timeseries"
     }
   ],

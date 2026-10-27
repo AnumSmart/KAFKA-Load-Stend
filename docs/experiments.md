@@ -10,7 +10,7 @@ Baseline:
 - required_acks leader
 - disable_idempotency true
 - 6 партиций, RF=3
-- 10 000 000 сообщений
+- 100 000 сообщений
 
 Как запускать вариант:
 

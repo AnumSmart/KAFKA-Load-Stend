@@ -3,6 +3,7 @@ package deps
 import (
 	"fmt"
 	"kafka-consumer/internal/consumer"
+	"time"
 
 	franzgoconsumer "pkg/kafka/franz-go-consumer"
 	"pkg/logger"
@@ -10,6 +11,10 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
+// initLogger инициализирует глобальный логгер из конфига. Побочный эффект:
+// logger.GetLogger() становится доступен остальным частям приложения.
+// Если по какой-то причине логгер не создался, возвращаем ошибку — без
+// логов приложение работать не должно.
 func (c *Container) initLogger() error {
 	logger.InitLogger(c.config.LoggerConfig)
 	c.logger = logger.GetLogger()
@@ -23,6 +28,11 @@ func (c *Container) initLogger() error {
 	return nil
 }
 
+// initKafkaClient создаёт *kgo.Client по конфигу и регистрирует closer для
+// его закрытия. Клиент один на приложение (на одну consumer group).
+//
+// Auto-commit внутри клиента выключен на уровне ToKgoConsumerOptions —
+// логируем это явно, чтобы при разборе логов не возникало сомнений.
 func (c *Container) initKafkaClient() error {
 	opts, err := c.config.KafkaClientConfig.ToKgoConsumerOptions()
 	if err != nil {
@@ -46,18 +56,24 @@ func (c *Container) initKafkaClient() error {
 		"topic", c.config.KafkaClientConfig.Topic,
 		"group", c.config.KafkaClientConfig.Consumer.GroupID,
 		"start_offset", c.config.KafkaClientConfig.Consumer.StartOffset,
+		"max_batch_size", c.config.KafkaClientConfig.Consumer.MaxBatchSize,
+		"auto_commit", false,
+		"session_timeout", c.config.KafkaClientConfig.Consumer.SessionTimeout.Duration().String(),
+		"rebalance_timeout", c.config.KafkaClientConfig.Consumer.RebalanceTimeout.Duration().String(),
 	)
 	return nil
 }
 
+// initConsumer создаёт BaseConsumer с CountHandler и регистрирует closer,
+// который вызовет Shutdown. Shutdown не закрывает *kgo.Client — только
+// останавливает цикл и ждёт currentBatch==0. Порядок закрытия
+// (Container.Close — обратный порядку регистрации): Shutdown ДО client.Close.
 func (c *Container) initConsumer() error {
-	handler := consumer.NewCountHandler(c.logger)
+	handler := consumer.NewCountHandler(c.logger, c.config.KafkaClientConfig.Consumer.GroupID)
 	opts := franzgoconsumer.DefaultOptions()
 	opts.MaxBatchSize = c.config.KafkaClientConfig.Consumer.MaxBatchSize
-	opts.CommitInterval = c.config.KafkaClientConfig.Consumer.CommitInterval.Duration()
-	if c.config.KafkaClientConfig.Consumer.DisableAutoCommit {
-		opts.CommitInterval = 0
-	}
+	// Согласовано с GracefulShutdownTimeout в cmd (30s).
+	opts.ShutdownTimeout = 30 * time.Second
 
 	base, err := franzgoconsumer.NewBaseConsumer(
 		franzgoconsumer.NewKafkaClientAdapter(c.kafkaClient),
@@ -74,5 +90,10 @@ func (c *Container) initConsumer() error {
 		c.consumer.Shutdown()
 		return nil
 	})
+
+	c.logger.Info("consumer initialized",
+		"max_batch_size", opts.MaxBatchSize,
+		"shutdown_timeout", opts.ShutdownTimeout.String(),
+	)
 	return nil
 }

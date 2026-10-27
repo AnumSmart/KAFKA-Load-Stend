@@ -31,17 +31,17 @@ func (c *Container) initKafkaClient() error {
 		return err
 	}
 
+	kpromMetrics := franzgoproducer.NewKpromMetrics()
+	opts = append(opts, kgo.WithHooks(kpromMetrics))
+
 	client, err := kgo.NewClient(opts...)
 	if err != nil {
 		return fmt.Errorf("create kafka client: %w", err)
 	}
 
 	c.kafkaClient = client
-	c.addCloser(func() error {
-		c.kafkaClient.Close()
-		c.logger.Info("kafka client closed")
-		return nil
-	})
+	// Close клиента — только через producer.Close (см. initProducer),
+	// чтобы не было double-close одного *kgo.Client.
 
 	c.logger.Info("kafka client initialized",
 		"brokers", c.config.KafkaClientConfig.Brokers,
@@ -56,7 +56,7 @@ func (c *Container) initProducer() error {
 		Topic:           cfg.Topic,
 		MessageCount:    cfg.Producer.MessageCount,
 		MessageTemplate: cfg.Producer.MessageTemplate,
-		ExpectedTotal:   cfg.Producer.MessageCount,
+		MetricsHold:     cfg.Producer.MetricsHold.Duration(),
 	}
 
 	producer, err := franzgoproducer.NewBaseProducer(
@@ -70,7 +70,11 @@ func (c *Container) initProducer() error {
 
 	c.producer = producer
 	c.addCloser(func() error {
-		return c.producer.Close()
+		if err := c.producer.Close(); err != nil {
+			return err
+		}
+		c.logger.Info("kafka client closed")
+		return nil
 	})
 	return nil
 }
