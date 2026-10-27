@@ -1,3 +1,7 @@
+# ВАЖНО: используйте `docker compose` (v2), а не старый `docker-compose` (v1),
+# иначе секция `deploy` будет проигнорирована и лимиты CPU не применятся.
+# Проверка: docker compose version
+
 services:
   kafka1:
     image: ${KAFKA_IMAGE:-apache/kafka:4.0.0}
@@ -21,7 +25,12 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
       KAFKA_LOG_DIRS: /var/lib/kafka/data
+      # --- Heap 512 МБ (по запросу) + потоки под 2 выделенных ядра ---
       KAFKA_HEAP_OPTS: '${KAFKA_HEAP_OPTS:--Xmx512m -Xms512m}'
+      KAFKA_NUM_IO_THREADS: 4
+      KAFKA_NUM_NETWORK_THREADS: 2
+      KAFKA_NUM_REPLICA_FETCHERS: 2
+      # --- JMX ---
       KAFKA_JMX_PORT: 9999
       KAFKA_JMX_HOSTNAME: kafka1
       KAFKA_JMX_OPTS: '-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.rmi.port=9999 -Djava.rmi.server.hostname=kafka1'
@@ -33,10 +42,13 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+    # Приоритет 4096 (х4 от дефолта 1024): при конкуренции брокер получает CPU первым
+    cpu_shares: 4096
     deploy:
       resources:
         limits:
-          cpus: '1.0'
+          # Потолок 2 ядра: запас для IO-потоков, репликации (RF=3) и работы контроллера
+          cpus: '2.0'
     networks:
       - kafka-stend
 
@@ -63,6 +75,9 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
       KAFKA_LOG_DIRS: /var/lib/kafka/data
       KAFKA_HEAP_OPTS: '${KAFKA_HEAP_OPTS:--Xmx512m -Xms512m}'
+      KAFKA_NUM_IO_THREADS: 4
+      KAFKA_NUM_NETWORK_THREADS: 2
+      KAFKA_NUM_REPLICA_FETCHERS: 2
       KAFKA_JMX_PORT: 9999
       KAFKA_JMX_HOSTNAME: kafka2
       KAFKA_JMX_OPTS: '-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.rmi.port=9999 -Djava.rmi.server.hostname=kafka2'
@@ -74,10 +89,13 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+    # Приоритет 4096 (х4 от дефолта 1024): при конкуренции брокер получает CPU первым
+    cpu_shares: 4096
     deploy:
       resources:
         limits:
-          cpus: '1.0'
+          # Потолок 2 ядра: запас для IO-потоков, репликации (RF=3) и работы контроллера
+          cpus: '2.0'
     networks:
       - kafka-stend
 
@@ -104,6 +122,9 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
       KAFKA_LOG_DIRS: /var/lib/kafka/data
       KAFKA_HEAP_OPTS: '${KAFKA_HEAP_OPTS:--Xmx512m -Xms512m}'
+      KAFKA_NUM_IO_THREADS: 4
+      KAFKA_NUM_NETWORK_THREADS: 2
+      KAFKA_NUM_REPLICA_FETCHERS: 2
       KAFKA_JMX_PORT: 9999
       KAFKA_JMX_HOSTNAME: kafka3
       KAFKA_JMX_OPTS: '-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false -Dcom.sun.management.jmxremote.rmi.port=9999 -Djava.rmi.server.hostname=kafka3'
@@ -115,10 +136,13 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+    # Приоритет 4096 (х4 от дефолта 1024): при конкуренции брокер получает CPU первым
+    cpu_shares: 4096
     deploy:
       resources:
         limits:
-          cpus: '1.0'
+          # Потолок 2 ядра: запас для IO-потоков, репликации (RF=3) и работы контроллера
+          cpus: '2.0'
     networks:
       - kafka-stend
 
@@ -140,6 +164,13 @@ services:
           --create --if-not-exists --topic ${TOPIC_NAME:-load-test} \
           --partitions ${TOPIC_PARTITIONS:-6} --replication-factor ${TOPIC_RF:-3}
         echo "topic ${TOPIC_NAME:-load-test} is ready"
+    # Самый низкий приоритет: одноразовый контейнер не должен отбирать CPU у брокеров
+    cpu_shares: 128
+    deploy:
+      resources:
+        limits:
+          # Потолок 0.5 ядра: создание топика — короткая операция
+          cpus: '0.5'
     networks:
       - kafka-stend
 
@@ -154,6 +185,13 @@ services:
     depends_on:
       kafka1:
         condition: service_healthy
+    # Низкий приоритет: мониторинг уступает CPU брокерам и консьюмерам
+    cpu_shares: 256
+    deploy:
+      resources:
+        limits:
+          # Потолок 0.3 ядра: экспортеру хватает с запасом
+          cpus: '0.3'
     networks:
       - kafka-stend
 
@@ -168,6 +206,13 @@ services:
     depends_on:
       kafka2:
         condition: service_healthy
+    # Низкий приоритет: мониторинг уступает CPU брокерам и консьюмерам
+    cpu_shares: 256
+    deploy:
+      resources:
+        limits:
+          # Потолок 0.3 ядра: экспортеру хватает с запасом
+          cpus: '0.3'
     networks:
       - kafka-stend
 
@@ -182,6 +227,13 @@ services:
     depends_on:
       kafka3:
         condition: service_healthy
+    # Низкий приоритет: мониторинг уступает CPU брокерам и консьюмерам
+    cpu_shares: 256
+    deploy:
+      resources:
+        limits:
+          # Потолок 0.3 ядра: экспортеру хватает с запасом
+          cpus: '0.3'
     networks:
       - kafka-stend
 
@@ -201,6 +253,13 @@ services:
         condition: service_healthy
       kafka3:
         condition: service_healthy
+    # Приоритет ниже среднего: опрашивает кластер, но не критичен для теста нагрузки
+    cpu_shares: 512
+    deploy:
+      resources:
+        limits:
+          # Потолок 0.5 ядра: сбор consumer lag и метрик топиков
+          cpus: '0.5'
     networks:
       - kafka-stend
 
@@ -218,6 +277,13 @@ services:
       - jmx-exporter-2
       - jmx-exporter-3
       - kafka-exporter
+    # Приоритет ниже среднего: скрейпинг метрик уступает нагрузочному трафику
+    cpu_shares: 512
+    deploy:
+      resources:
+        limits:
+          # Потолок 1 ядро: хватает для скрейпа ~9 таргетов и записи в TSDB
+          cpus: '1.0'
     networks:
       - kafka-stend
 
@@ -226,15 +292,25 @@ services:
       context: ..
       dockerfile: deployments/docker/Dockerfile.consumer
     container_name: kafka-consumer-1
+    ports:
+      - '8082:8082'
     environment:
       KAFKA_BROKERS: kafka1:19092,kafka2:19092,kafka3:19092
       KAFKA_TOPIC: ${TOPIC_NAME:-load-test}
-      CONSUMER_GROUP_ID: group-1
+      CONSUMER_GROUP_ID: load-test-group # одна общая группа для всех трёх консьюмеров
       CONSUMER_START_OFFSET: latest
+      CONSUMER_METRICS_ADDR: ':8082'
     depends_on:
       kafka-init:
         condition: service_completed_successfully
     restart: unless-stopped
+    # Стандартный приоритет: консьюмер важен, но уступает брокерам
+    cpu_shares: 1024
+    deploy:
+      resources:
+        limits:
+          # Потолок 1 ядро: обработка 2 партиций из 6
+          cpus: '1.0'
     networks:
       - kafka-stend
 
@@ -243,15 +319,25 @@ services:
       context: ..
       dockerfile: deployments/docker/Dockerfile.consumer
     container_name: kafka-consumer-2
+    ports:
+      - '8083:8082'
     environment:
       KAFKA_BROKERS: kafka1:19092,kafka2:19092,kafka3:19092
       KAFKA_TOPIC: ${TOPIC_NAME:-load-test}
-      CONSUMER_GROUP_ID: group-2
+      CONSUMER_GROUP_ID: load-test-group # одна общая группа для всех трёх консьюмеров
       CONSUMER_START_OFFSET: latest
+      CONSUMER_METRICS_ADDR: ':8082'
     depends_on:
       kafka-init:
         condition: service_completed_successfully
     restart: unless-stopped
+    # Стандартный приоритет: консьюмер важен, но уступает брокерам
+    cpu_shares: 1024
+    deploy:
+      resources:
+        limits:
+          # Потолок 1 ядро: обработка 2 партиций из 6
+          cpus: '1.0'
     networks:
       - kafka-stend
 
@@ -260,15 +346,25 @@ services:
       context: ..
       dockerfile: deployments/docker/Dockerfile.consumer
     container_name: kafka-consumer-3
+    ports:
+      - '8084:8082'
     environment:
       KAFKA_BROKERS: kafka1:19092,kafka2:19092,kafka3:19092
       KAFKA_TOPIC: ${TOPIC_NAME:-load-test}
-      CONSUMER_GROUP_ID: group-3
+      CONSUMER_GROUP_ID: load-test-group # одна общая группа для всех трёх консьюмеров
       CONSUMER_START_OFFSET: latest
+      CONSUMER_METRICS_ADDR: ':8082'
     depends_on:
       kafka-init:
         condition: service_completed_successfully
     restart: unless-stopped
+    # Стандартный приоритет: консьюмер важен, но уступает брокерам
+    cpu_shares: 1024
+    deploy:
+      resources:
+        limits:
+          # Потолок 1 ядро: обработка 2 партиций из 6
+          cpus: '1.0'
     networks:
       - kafka-stend
 
@@ -287,6 +383,8 @@ services:
       PRODUCER_BATCH_MAX_BYTES: ${PRODUCER_BATCH_MAX_BYTES:-}
       PRODUCER_REQUIRED_ACKS: ${PRODUCER_REQUIRED_ACKS:-}
       PRODUCER_DISABLE_IDEMPOTENCY: ${PRODUCER_DISABLE_IDEMPOTENCY:-}
+      PRODUCER_COMPRESSION: ${PRODUCER_COMPRESSION:-}
+      PRODUCER_METRICS_ADDR: ${PRODUCER_METRICS_ADDR:-}
     depends_on:
       kafka-init:
         condition: service_completed_successfully
@@ -298,6 +396,13 @@ services:
         condition: service_started
     entrypoint: ['/bin/sh', '-c', 'sleep 8 && exec /app/producer']
     restart: 'no'
+    # Стандартный приоритет: продюсер — источник нагрузки, но не должен душить брокеров
+    cpu_shares: 1024
+    deploy:
+      resources:
+        limits:
+          # Потолок 1 ядро: сжатие батчей и сериализация
+          cpus: '1.0'
     networks:
       - kafka-stend
 
@@ -319,6 +424,13 @@ services:
       kafka3:
         condition: service_healthy
     restart: unless-stopped
+    # Низкий приоритет: UI нужен только для просмотра, не влияет на тест нагрузки
+    cpu_shares: 256
+    deploy:
+      resources:
+        limits:
+          # Потолок 0.5 ядра: периодический опрос кластера
+          cpus: '0.5'
     networks:
       - kafka-stend
 
@@ -339,6 +451,13 @@ services:
       - ./grafana/provisioning/dashboards/load-test.json:/var/lib/grafana/dashboards/load-test.json:ro
     depends_on:
       - prometheus
+    # Низкий приоритет: рендеринг дашбордов не должен мешать тесту нагрузки
+    cpu_shares: 256
+    deploy:
+      resources:
+        limits:
+          # Потолок 0.5 ядра: отрисовка графиков и запросы к Prometheus
+          cpus: '0.5'
     networks:
       - kafka-stend
 
