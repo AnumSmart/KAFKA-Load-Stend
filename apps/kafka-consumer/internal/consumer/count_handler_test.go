@@ -10,7 +10,7 @@ import (
 )
 
 func TestCountHandlerIncrements(t *testing.T) {
-	h := NewCountHandler(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	h := NewCountHandler(slog.New(slog.NewTextHandler(io.Discard, nil)), "test-group")
 	if err := h.HandleMessage(context.Background(), &kafka.Message{Value: []byte("x")}); err != nil {
 		t.Fatal(err)
 	}

@@ -1,14 +1,39 @@
+# Адреса брокеров. Порядок не важен: franz-go сам определит лидера партиции.
+# При запуске в docker-compose адреса переопределяются через KAFKA_BROKERS.
 brokers:
   - localhost:9092
   - localhost:9094
   - localhost:9096
+
+# Топик, из которого читают все три группы.
 topic: load-test
 
 consumer:
-  group_id: group-1
+  # Имя consumer group. При запуске нескольких консьюмеров на одном
+  # docker-compose переопределяется через CONSUMER_GROUP_ID (load-test-group).
+  group_id: load-test-group
+
+  # С какого оффсета начинать, если группа новая (нет закоммиченного оффсета):
+  # latest — только новые сообщения, earliest — с начала партиции.
   start_offset: latest
-  disable_auto_commit: false
-  commit_interval: 5s
+
+  # Размер чанка, на который BaseConsumer разбивает фетч перед вызовом
+  # handler.HandleMessage. Фетч целиком НЕ обрезается: все записи из
+  # PollFetches будут обработаны чанками по max_batch_size. Меньше значение —
+  # чаще коммиты, больше значение — меньше overhead на вызовы handler'а.
   max_batch_size: 1000
+
+  # Таймауты group-протокола Kafka. Для 3 групп и 3 брокеров дефолтов
+  # достаточно; уменьшать не стоит — увеличится вероятность ложных rebalance.
   session_timeout: 30s
   rebalance_timeout: 60s
+
+  # HTTP-адрес /metrics. Переопределяется через CONSUMER_METRICS_ADDR
+  # (локальные реплики: :8082/:8083/:8084).
+  metrics_addr: ':8082'
+
+  # ВНИМАНИЕ: параметры disable_auto_commit и commit_interval удалены.
+  # Auto-commit всегда выключен (см. ToKgoConsumerOptions в pkg/configs),
+  # а оффсеты коммитятся вручную через CommitRecords после обработки
+  # каждого чанка. Это единственный способ не потерять записи при
+  # фетче, размер которого больше max_batch_size.
