@@ -156,19 +156,22 @@ deployments/.env.example (Makefile передаёт --env-file deployments/.env.
 | `PRODUCER_COMPRESSION`         | `snappy`           | Кодек: `none`/`gzip`/`snappy`/`lz4`/`zstd` |
 | `PRODUCER_REQUIRED_ACKS`       | `all` или `leader` | Надёжность vs throughput                   |
 | `PRODUCER_DISABLE_IDEMPOTENCY` | `true`             | Снять лимит идемпотентного продюсера       |
-| `PRODUCER_METRICS_ADDR`        | `:8081`            | Адрес `/metrics` продюсера                 |
-| `CONSUMER_METRICS_ADDR`        | `:8082`            | Адрес `/metrics` консьюмера                |
-| `MESSAGE_COUNT`                | `100000`           | Число сообщений                            |
-| `TOPIC_NAME`                   | `load-test`        | Имя топика                                 |
-| `TOPIC_PARTITIONS`             | `6`                | Число партиций (только при создании)       |
-| `TOPIC_RF`                     | `3`                | Replication factor (только при создании)   |
+| `PRODUCER_METRICS_ADDR`          | `:8081`            | Адрес `/metrics` продюсера                 |
+| `PRODUCER_METRICS_HOLD`          | `20s`              | Пауза после Flush под scrape Prometheus    |
+| `PRODUCER_MAX_BUFFERED_RECORDS`  | `1000000`          | Лимит буфера franz-go                      |
+| `CONSUMER_METRICS_ADDR`          | `:8082`            | Адрес `/metrics` консьюмера                |
+| `CONSUMER_START_OFFSET`          | `earliest`         | Старт новой группы: `earliest`/`latest`    |
+| `MESSAGE_COUNT`                  | `100000`           | Число сообщений                            |
+| `TOPIC_NAME`                     | `load-test`        | Имя топика                                 |
+| `TOPIC_PARTITIONS`               | `6`                | Число партиций (только при создании)       |
+| `TOPIC_RF`                       | `3`                | Replication factor (только при создании)   |
 
 CONSUMER_GROUP_ID зашит в deployments/docker-compose.yml как load-test-group
 для всех трёх Docker-реплик; тот же load-test-group используют локальные
 цели make consumerN-local. Это даёт корректное партиционирование: 6 партиций
 делятся между членами группы (по 2 на реплику при трёх членах). Если поменять
 имя группы у всех реплик — при следующем запуске появится новая группа и чтение
-начнётся «с нуля» (по CONSUMER_START_OFFSET=latest — только с новых сообщений).
+начнётся с начала топика (`CONSUMER_START_OFFSET=earliest`).
 Если задать разные имена — получите N× амплификацию чтения (это отдельный
 эксперимент, он искажает картину нормального потребления).
 
@@ -191,7 +194,8 @@ make down
 
 make down останавливает контейнеры, но тома сохраняются — offsets и
 сообщения топика остаются на месте. При следующем make up консьюмеры
-продолжат с сохранённых позиций (по latest — только с новых сообщений).
+продолжат с сохранённых позиций группы; `earliest`/`latest` применяются
+только если у группы ещё нет закоммиченного оффсета.
 
 ## Полный сброс (удаляет тома Kafka, offsets и топик):
 

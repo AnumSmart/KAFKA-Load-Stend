@@ -211,3 +211,63 @@ func TestValidateRejectsEmptyBrokers(t *testing.T) {
 		t.Fatal("expected validation error")
 	}
 }
+
+func TestValidateEmptyGroupIDDefaultsToLoadTestGroup(t *testing.T) {
+	cfg := DefaultKafkaClientConfig()
+	cfg.Consumer.GroupID = ""
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	if cfg.Consumer.GroupID != "load-test-group" {
+		t.Fatalf("group = %s, want load-test-group", cfg.Consumer.GroupID)
+	}
+}
+
+func TestDefaultStartOffsetIsEarliest(t *testing.T) {
+	cfg := DefaultKafkaClientConfig()
+	if cfg.Consumer.StartOffset != "earliest" {
+		t.Fatalf("start_offset = %q, want earliest", cfg.Consumer.StartOffset)
+	}
+}
+
+func TestParseStartOffsetEmptyIsEarliest(t *testing.T) {
+	off, err := ParseStartOffset("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, _ := ParseStartOffset("earliest")
+	if off != want {
+		t.Fatalf("empty start_offset should equal earliest")
+	}
+}
+
+func TestApplyProducerEnvOverridesMaxBufferedAndHold(t *testing.T) {
+	t.Setenv("PRODUCER_MAX_BUFFERED_RECORDS", "500000")
+	t.Setenv("PRODUCER_METRICS_HOLD", "15s")
+
+	cfg := DefaultKafkaClientConfig()
+	if err := ApplyProducerEnvOverrides(cfg); err != nil {
+		t.Fatalf("ApplyProducerEnvOverrides: %v", err)
+	}
+	if cfg.Producer.MaxBufferedRecords != 500000 {
+		t.Fatalf("max_buffered = %d", cfg.Producer.MaxBufferedRecords)
+	}
+	if cfg.Producer.MetricsHold.Duration() != 15*time.Second {
+		t.Fatalf("metrics_hold = %s", cfg.Producer.MetricsHold)
+	}
+}
+
+func TestValidateNormalizesZeroSessionTimeouts(t *testing.T) {
+	cfg := DefaultKafkaClientConfig()
+	cfg.Consumer.SessionTimeout = 0
+	cfg.Consumer.RebalanceTimeout = 0
+	if err := cfg.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Consumer.SessionTimeout.Duration() != 30*time.Second {
+		t.Fatalf("session = %s", cfg.Consumer.SessionTimeout)
+	}
+	if cfg.Consumer.RebalanceTimeout.Duration() != 60*time.Second {
+		t.Fatalf("rebalance = %s", cfg.Consumer.RebalanceTimeout)
+	}
+}

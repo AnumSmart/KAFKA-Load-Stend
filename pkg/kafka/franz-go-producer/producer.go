@@ -108,18 +108,35 @@ func (p *BaseProducer) Run(ctx context.Context) error {
 		"avg_msg_sec", int64(avg),
 	)
 
-	if acked != p.options.ExpectedTotal {
+	// Единственный источник истины теперь MessageCount — ExpectedTotal
+	// удалён в этом PR, чтобы не было двух разных цифр.
+	if acked != p.options.MessageCount {
 		p.logger.Warn("acked count differs from expected",
 			"acked", acked,
-			"expected", p.options.ExpectedTotal,
+			"expected", p.options.MessageCount,
 			"failed", failed,
 		)
+	}
+
+	// Держим /metrics живым после короткого прогона, чтобы Prometheus
+	// (scrape_interval 5s) успел снять хотя бы 2–3 сэмпла.
+	if hold := p.options.MetricsHold; hold > 0 {
+		p.logger.Info("holding metrics endpoint for scrape",
+			"duration", hold.String(),
+		)
+		select {
+		case <-time.After(hold):
+		case <-ctx.Done():
+			p.logger.Info("metrics hold interrupted by context")
+		}
 	}
 
 	return nil
 }
 
+// Close закрывает underlying Kafka-клиент. Идемпотентен на стороне kgo.
 func (p *BaseProducer) Close() error {
+	p.client.Close()
 	return nil
 }
 

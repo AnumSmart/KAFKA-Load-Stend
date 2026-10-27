@@ -141,7 +141,7 @@
       "id": 7,
       "targets": [
         {
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(kgo_request_durationE2E_seconds_bucket[1m])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(kgo_request_duration_e2e_seconds_bucket[1m])))",
           "legendFormat": "p99 E2E",
           "refId": "A"
         },

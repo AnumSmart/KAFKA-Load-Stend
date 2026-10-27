@@ -14,3 +14,6 @@ producer:
   message_count: 100000
   message_template: 'привет - я сообщение #%d'
   metrics_addr: ':8081'
+  # Пауза после Flush, чтобы Prometheus (scrape 5s) успел снять метрики.
+  # 0s — выйти сразу. Переопределяется через PRODUCER_METRICS_HOLD.
+  metrics_hold: 20s

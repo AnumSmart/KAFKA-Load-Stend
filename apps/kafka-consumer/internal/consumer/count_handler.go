@@ -11,23 +11,24 @@ import (
 	"pkg/kafka"
 )
 
-// CountHandler считает обработанные сообщения без побочных эффектов
+// CountHandler считает закоммиченные сообщения без побочных эффектов
 // и публикует метрики в Prometheus.
 //
-// Метрики:
+// Метрики (все обновляются в OnBatchProcessed — только после успешного
+// CommitRecords в BaseConsumer):
 //   - consumer_messages_processed_total{group="..."} — counter,
-//     инкрементируется в HandleMessage.
-//   - consumer_batches_total{group="..."} — counter,
-//     инкрементируется в OnBatchProcessed.
-//   - consumer_batch_size{group="..."} — histogram,
-//     наблюдает размер каждого батча.
+//     +batchSize после коммита;
+//   - consumer_batches_total{group="..."} — counter;
+//   - consumer_batch_size{group="..."} — histogram размера батча.
+//
+// HandleMessage намеренно пустой по счётчикам: иначе при ошибке коммита
+// метрики опережали бы реальный прогресс группы.
 //
 // Все метрики регистрируются в дефолтном реестре с ConstLabels group,
 // чтобы Prometheus мог различать несколько групп на одном хосте.
 type CountHandler struct {
 	processed atomic.Int64
 	logger    *slog.Logger
-	debug     bool
 
 	processedCnt prometheus.Counter
 	batchesCnt   prometheus.Counter
@@ -40,37 +41,35 @@ func NewCountHandler(logger *slog.Logger, groupID string) *CountHandler {
 		logger: logger,
 		processedCnt: promauto.NewCounter(prometheus.CounterOpts{
 			Name:        "consumer_messages_processed_total",
-			Help:        "Число успешно обработанных сообщений",
+			Help:        "Число успешно закоммиченных сообщений",
 			ConstLabels: labels,
 		}),
 		batchesCnt: promauto.NewCounter(prometheus.CounterOpts{
 			Name:        "consumer_batches_total",
-			Help:        "Число успешно обработанных батчей",
+			Help:        "Число успешно закоммиченных батчей",
 			ConstLabels: labels,
 		}),
 		batchSize: promauto.NewHistogram(prometheus.HistogramOpts{
 			Name:        "consumer_batch_size",
-			Help:        "Размер обработанного батча",
+			Help:        "Размер закоммиченного батча",
 			Buckets:     prometheus.ExponentialBuckets(100, 2, 8), // 100..12800
 			ConstLabels: labels,
 		}),
 	}
 }
 
-func (h *CountHandler) HandleMessage(_ context.Context, msg *kafka.Message) error {
-	h.processed.Add(1)
-	h.processedCnt.Inc()
-	if h.debug {
-		h.logger.Debug("message processed",
-			"topic", msg.Topic, "partition", msg.Partition, "offset", msg.Offset)
-	}
+func (h *CountHandler) HandleMessage(_ context.Context, _ *kafka.Message) error {
 	return nil
 }
 
 func (h *CountHandler) OnBatchProcessed(batchSize int) {
+	if batchSize > 0 {
+		h.processed.Add(int64(batchSize))
+		h.processedCnt.Add(float64(batchSize))
+	}
 	h.batchesCnt.Inc()
 	h.batchSize.Observe(float64(batchSize))
-	h.logger.Info("batch processed",
+	h.logger.Info("batch committed",
 		"batch_size", batchSize, "total", h.processed.Load())
 }
 

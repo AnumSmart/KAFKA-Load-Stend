@@ -43,6 +43,8 @@ type ProducerConfig struct {
 	MessageCount       int64    `yaml:"message_count"`
 	MessageTemplate    string   `yaml:"message_template"`
 	MetricsAddr        string   `yaml:"metrics_addr"`
+	// MetricsHold — пауза после Flush, чтобы Prometheus успел снять метрики.
+	MetricsHold Duration `yaml:"metrics_hold"`
 }
 
 // ConsumerConfig — параметры консьюмера.
@@ -81,10 +83,13 @@ func DefaultKafkaClientConfig() *KafkaClientConfig {
 			MessageCount:       100_000,
 			MessageTemplate:    defaultMessageTemplate,
 			MetricsAddr:        defaultMetricsAddr,
+			MetricsHold:        Duration(20 * time.Second),
 		},
 		Consumer: ConsumerConfig{
 			GroupID:          "load-test-group",
-			StartOffset:      "latest",
+			// earliest: при новой группе не теряем сообщения, если продюсер
+			// стартовал до завершения join (в отличие от latest + sleep).
+			StartOffset:      "earliest",
 			MaxBatchSize:     1000,
 			SessionTimeout:   Duration(30 * time.Second),
 			RebalanceTimeout: Duration(60 * time.Second),
@@ -205,13 +210,29 @@ func ApplyProducerEnvOverrides(cfg *KafkaClientConfig) error {
 	if v := os.Getenv("PRODUCER_METRICS_ADDR"); v != "" {
 		cfg.Producer.MetricsAddr = v
 	}
+	if v := os.Getenv("PRODUCER_MAX_BUFFERED_RECORDS"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("PRODUCER_MAX_BUFFERED_RECORDS=%q: %w", v, err))
+		} else {
+			cfg.Producer.MaxBufferedRecords = n
+		}
+	}
+	if v := os.Getenv("PRODUCER_METRICS_HOLD"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("PRODUCER_METRICS_HOLD=%q: %w", v, err))
+		} else {
+			cfg.Producer.MetricsHold = Duration(d)
+		}
+	}
 
 	return errors.Join(errs...)
 }
 
 // ApplyConsumerEnvOverrides применяет env-переменные консьюмера.
-// CONSUMER_GROUP_ID — единственный практичный способ запустить три группы
-// на одном бинаре из docker-compose: остальные параметры одинаковы.
+// CONSUMER_GROUP_ID задаёт имя группы (по умолчанию load-test-group);
+// через него же удобно менять группу у локальных/docker-реплик одного бинаря.
 //
 // Возвращает error ради симметрии: обе переменные — свободные строки,
 // валидация GroupID/StartOffset выполняется в Validate.
@@ -262,13 +283,22 @@ func (c *KafkaClientConfig) Validate() error {
 		return err
 	}
 	if c.Consumer.GroupID == "" {
-		c.Consumer.GroupID = "group-1"
+		c.Consumer.GroupID = "load-test-group"
 	}
 	if c.Consumer.MaxBatchSize <= 0 {
 		c.Consumer.MaxBatchSize = 1000
 	}
 	if c.Consumer.MetricsAddr == "" {
 		c.Consumer.MetricsAddr = defaultConsumerMetricsAddr
+	}
+	if c.Consumer.SessionTimeout.Duration() <= 0 {
+		c.Consumer.SessionTimeout = Duration(30 * time.Second)
+	}
+	if c.Consumer.RebalanceTimeout.Duration() <= 0 {
+		c.Consumer.RebalanceTimeout = Duration(60 * time.Second)
+	}
+	if c.Producer.MetricsHold < 0 {
+		c.Producer.MetricsHold = Duration(20 * time.Second)
 	}
 	if _, err := ParseStartOffset(c.Consumer.StartOffset); err != nil {
 		return err
@@ -368,16 +398,17 @@ func ParseCompression(value string) (kgo.CompressionCodec, error) {
 }
 
 // ParseStartOffset разбирает строковое значение start_offset в kgo.Offset.
-// earliest — с начала партиции (полезно для повторных прогонов на чистом
-// топике), latest — только новые сообщения (дефолт для нагрузочного стенда:
-// консьюмеры стартуют раньше продюсера и читают всё, что он отправит).
+// earliest — с начала партиции (дефолт стенда: не теряем сообщения, если
+// продюсер успел отправить до завершения join группы).
+// latest — только новые сообщения (нужен старт консьюмеров до продюсера).
+// Пустая строка трактуется как earliest — как в DefaultKafkaClientConfig.
 func ParseStartOffset(value string) (kgo.Offset, error) {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "earliest", "at_start":
+	case "earliest", "at_start", "":
 		return kgo.NewOffset().AtStart(), nil
-	case "latest", "at_end", "":
+	case "latest", "at_end":
 		return kgo.NewOffset().AtEnd(), nil
 	default:
-		return kgo.NewOffset().AtEnd(), fmt.Errorf("invalid start_offset: %s", value)
+		return kgo.NewOffset().AtStart(), fmt.Errorf("invalid start_offset: %s", value)
 	}
 }
