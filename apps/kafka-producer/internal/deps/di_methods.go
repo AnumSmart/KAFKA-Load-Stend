@@ -56,7 +56,6 @@ func (c *Container) initProducer() error {
 		Topic:           cfg.Topic,
 		MessageCount:    cfg.Producer.MessageCount,
 		MessageTemplate: cfg.Producer.MessageTemplate,
-		MessageBytes:    cfg.Producer.MessageBytes,
 		MetricsHold:     cfg.Producer.MetricsHold.Duration(),
 	}
 

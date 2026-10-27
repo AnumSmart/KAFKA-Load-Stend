@@ -68,7 +68,7 @@ infra:
 load:
 	@echo "[INFO] Starting consumers and running producer..."
 	$(COMPOSE_CMD) up -d --build $(CONSUMER_SERVICES)
-	$(COMPOSE_CMD) run --rm --service-ports producer
+	$(COMPOSE_CMD) run --rm --service-ports --use-aliases producer
 	@echo "[OK] Load run finished"
 
 down:
@@ -96,7 +96,7 @@ consumers:
 	$(COMPOSE_CMD) up -d --build $(CONSUMER_SERVICES)
 
 producer:
-	$(COMPOSE_CMD) run --rm --service-ports producer
+	$(COMPOSE_CMD) run --rm --service-ports --use-aliases producer
 
 # Внутренняя цель. Снаружи используйте make exp-*.
 # Требует уже запущенную инфру (make infra). Консьюмеры поднимает сама.
@@ -105,7 +105,7 @@ producer:
 run-experiment:
 	@echo "[INFO] linger=$(PRODUCER_LINGER) batch=$(PRODUCER_BATCH_MAX_BYTES) compression=$(PRODUCER_COMPRESSION) acks=$(PRODUCER_REQUIRED_ACKS) disable_idempotency=$(PRODUCER_DISABLE_IDEMPOTENCY) messages=$(MESSAGE_COUNT) message_bytes=$(PRODUCER_MESSAGE_BYTES)"
 	$(COMPOSE_CMD) up -d --build $(CONSUMER_SERVICES)
-	$(COMPOSE_CMD) run --rm --service-ports \
+	$(COMPOSE_CMD) run --rm --service-ports --use-aliases \
 		-e MESSAGE_COUNT=$(MESSAGE_COUNT) \
 		-e PRODUCER_LINGER=$(PRODUCER_LINGER) \
 		-e PRODUCER_BATCH_MAX_BYTES=$(PRODUCER_BATCH_MAX_BYTES) \

@@ -1,9 +1,10 @@
 jmxUrl: service:jmx:rmi:///jndi/rmi://kafka1:9999/jmxrmi
 lowercaseOutputName: true
 lowercaseOutputLabelNames: true
-whitelistObjectNames:
+# jmx_exporter 1.3: старый ключ whitelistObjectNames игнорируется,
+# и экспортёр обходит все MBean Kafka дольше scrape timeout Prometheus.
+includeObjectNames:
   - kafka.server:type=BrokerTopicMetrics,*
-  - kafka.network:type=RequestMetrics,*
   - java.lang:type=Memory
   - java.lang:type=OperatingSystem
 rules:
@@ -15,16 +16,6 @@ rules:
     type: GAUGE
   - pattern: kafka.server<type=BrokerTopicMetrics, name=BytesOutPerSec><>OneMinuteRate
     name: kafka_server_brokertopicmetrics_bytesoutpersec_oneminuterate
-    type: GAUGE
-  - pattern: kafka.network<type=RequestMetrics, name=RequestQueueTimeMs, request=(.+)><>Mean
-    name: kafka_network_requestmetrics_requestqueuetimems_mean
-    labels:
-      request: "$1"
-    type: GAUGE
-  - pattern: kafka.network<type=RequestMetrics, name=LocalTimeMs, request=(.+)><>Mean
-    name: kafka_network_requestmetrics_localtimems_mean
-    labels:
-      request: "$1"
     type: GAUGE
   # JVM heap / CPU процесса брокера (для экспериментов с heap и нагрузкой)
   - pattern: 'java.lang<type=Memory><HeapMemoryUsage>used'
