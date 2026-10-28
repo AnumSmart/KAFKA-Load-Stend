@@ -1,5 +1,6 @@
 {
   "annotations": { "list": [] },
+  "description": "Метрики для экспериментов: throughput, broker acks, CPU/RAM, MessagesIn/Bytes, lag (sum + per partition), consumer rate/batch, end-to-end.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -7,64 +8,33 @@
   "links": [],
   "panels": [
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
-      "id": 1,
-      "targets": [
-        {
-          "expr": "sum(kafka_server_brokertopicmetrics_messagesinpersec_oneminuterate) or sum(rate(kafka_topic_partition_current_offset{topic=\"load-test\"}[1m]))",
-          "legendFormat": "MessagesInPerSec",
-          "refId": "A"
-        }
-      ],
-      "title": "MessagesInPerSec",
-      "type": "timeseries"
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "panels": [],
+      "title": "1. Продюсер",
+      "type": "row"
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "Bps" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
-      "id": 2,
-      "targets": [
-        {
-          "expr": "sum(kafka_server_brokertopicmetrics_bytesinpersec_oneminuterate)",
-          "legendFormat": "BytesInPerSec",
-          "refId": "A"
+      "description": "Скорость подтверждений брокера (acks) и ошибок. Цель — errors ≈ 0.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": false }
         },
-        {
-          "expr": "sum(kafka_server_brokertopicmetrics_bytesoutpersec_oneminuterate)",
-          "legendFormat": "BytesOutPerSec",
-          "refId": "B"
-        }
-      ],
-      "title": "BytesInPerSec / BytesOutPerSec",
-      "type": "timeseries"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
-      "id": 3,
-      "targets": [
-        {
-          "expr": "sum by (consumergroup) (kafka_consumergroup_lag{consumergroup=\"load-test-group\"})",
-          "legendFormat": "{{consumergroup}}",
-          "refId": "A"
-        }
-      ],
-      "title": "kafka_consumergroup_lag",
-      "type": "timeseries"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
-      "id": 4,
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 1 },
+      "id": 1,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
       "targets": [
         {
           "expr": "rate(producer_messages_acked_total[15s])",
-          "legendFormat": "acked/sec",
+          "legendFormat": "broker acked/sec",
           "refId": "A"
         },
         {
@@ -73,56 +43,42 @@
           "refId": "B"
         }
       ],
-      "title": "Producer acked / errors",
+      "title": "Producer: broker acked / errors (rate)",
       "type": "timeseries"
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Скорость постановки в клиент vs ack + in-flight буфер.",
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "red", "value": null },
-              { "color": "green", "value": 1 }
+          "unit": "ops",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": false }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "in-flight" },
+            "properties": [
+              { "id": "unit", "value": "short" },
+              { "id": "custom.axisPlacement", "value": "right" }
             ]
           }
-        },
-        "overrides": []
+        ]
       },
-      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 24 },
-      "id": 5,
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 1 },
+      "id": 2,
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
-        "colorMode": "background",
-        "graphMode": "none",
-        "textMode": "auto"
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
       },
       "targets": [
         {
-          "expr": "up{job=~\"jmx|kafka-exporter|producer|consumer|prometheus\"}",
-          "legendFormat": "{{job}}/{{instance}}",
-          "refId": "A"
-        }
-      ],
-      "title": "Targets health",
-      "type": "stat"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
-      "id": 6,
-      "targets": [
-        {
-          "expr": "rate(producer_messages_produced_total[30s])",
-          "legendFormat": "produced/s",
+          "expr": "rate(producer_messages_produced_total[15s])",
+          "legendFormat": "produced/sec",
           "refId": "A"
         },
         {
-          "expr": "rate(producer_messages_acked_total[30s])",
-          "legendFormat": "acked/s",
+          "expr": "rate(producer_messages_acked_total[15s])",
+          "legendFormat": "broker acked/sec",
           "refId": "B"
         },
         {
@@ -136,19 +92,25 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
-      "id": 7,
+      "description": "Latency p99 end-to-end клиента.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": false }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 1 },
+      "id": 3,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
       "targets": [
         {
           "expr": "histogram_quantile(0.99, sum by (le) (rate(kgo_request_duration_e2e_seconds_bucket[1m])))",
           "legendFormat": "p99 E2E",
           "refId": "A"
-        },
-        {
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(kgo_write_wait_seconds_bucket[1m])))",
-          "legendFormat": "p99 batch wait",
-          "refId": "B"
         }
       ],
       "title": "Producer: latency p99",
@@ -156,38 +118,411 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 36 },
-      "id": 8,
+      "description": "Подтверждения брокера: сколько сообщений ушло в Produce и сколько брокер подтвердил (acks). unacked = produced − acked (ещё без подтверждения). В конце прогона produced ≈ acked.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": false }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 9 },
+      "id": 15,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
       "targets": [
         {
-          "expr": "sum(rate(consumer_messages_processed_total[30s])) by (instance)",
-          "legendFormat": "{{instance}} processed/s",
+          "expr": "producer_messages_produced_total",
+          "legendFormat": "produced (sent to client)",
           "refId": "A"
         },
         {
-          "expr": "sum(rate(consumer_batches_total[30s])) by (instance)",
-          "legendFormat": "{{instance}} batches/s",
+          "expr": "producer_messages_acked_total",
+          "legendFormat": "broker acked (confirmed)",
           "refId": "B"
+        },
+        {
+          "expr": "producer_messages_produced_total - producer_messages_acked_total",
+          "legendFormat": "unacked (waiting broker)",
+          "refId": "C"
+        },
+        {
+          "expr": "producer_errors_total",
+          "legendFormat": "errors (cumulative)",
+          "refId": "D"
         }
       ],
-      "title": "Consumer: processing rate",
+      "title": "Producer: broker confirmations (cumulative)",
       "type": "timeseries"
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 36 },
-      "id": 9,
+      "description": "Доля подтверждённых брокером от отправленных. В идеале → 1.0 к концу Flush.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "custom": { "drawStyle": "line", "fillOpacity": 15, "spanNulls": false }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 9 },
+      "id": 16,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
       "targets": [
         {
-          "expr": "histogram_quantile(0.5,  sum by (le) (rate(consumer_batch_size_bucket[1m])))",
-          "legendFormat": "p50",
+          "expr": "producer_messages_acked_total / clamp_min(producer_messages_produced_total, 1)",
+          "legendFormat": "acked / produced",
+          "refId": "A"
+        }
+      ],
+      "title": "Producer: ack ratio",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "CPU процесса продюсера (ядра). Видно пока контейнер жив (включая metrics hold).",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": false }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 17 },
+      "id": 11,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"producer\"}[1m])",
+          "legendFormat": "CPU cores",
+          "refId": "A"
+        }
+      ],
+      "title": "Producer: CPU",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Resident / virtual memory процесса продюсера.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": false }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 17 },
+      "id": 12,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes{job=\"producer\"}",
+          "legendFormat": "RSS",
+          "refId": "A"
+        },
+        {
+          "expr": "process_virtual_memory_bytes{job=\"producer\"}",
+          "legendFormat": "VMS",
+          "refId": "B"
+        }
+      ],
+      "title": "Producer: memory",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 },
+      "id": 101,
+      "panels": [],
+      "title": "2. Брокеры",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Входная нагрузка на кластер. JMX или fallback по росту LEO.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": false }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 25 },
+      "id": 4,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "sum(kafka_server_brokertopicmetrics_messagesinpersec_oneminuterate) or sum(rate(kafka_topic_partition_current_offset{topic=\"load-test\"}[1m]))",
+          "legendFormat": "MessagesInPerSec",
+          "refId": "A"
+        }
+      ],
+      "title": "Broker: MessagesInPerSec",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Объём сети. Полезно при смене compression.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": false }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 25 },
+      "id": 5,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "sum(kafka_server_brokertopicmetrics_bytesinpersec_oneminuterate)",
+          "legendFormat": "BytesInPerSec",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(kafka_server_brokertopicmetrics_bytesoutpersec_oneminuterate)",
+          "legendFormat": "BytesOutPerSec",
+          "refId": "B"
+        }
+      ],
+      "title": "Broker: BytesIn / BytesOut",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Суммарный log end offset топика load-test.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": false }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 25 },
+      "id": 6,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "sum(kafka_topic_partition_current_offset{topic=\"load-test\"})",
+          "legendFormat": "broker LEO",
+          "refId": "A"
+        }
+      ],
+      "title": "Broker: topic LEO (load-test)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "MessagesInPerSec из JMX, уже скорость за минуту, отдельно по каждому брокеру.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": false }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 33 },
+      "id": 18,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "sum by (broker) (kafka_server_brokertopicmetrics_messagesinpersec_oneminuterate{job=\"jmx\"})",
+          "legendFormat": "{{broker}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Broker: throughput msg/s",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "CPU JVM брокера (0–100%). Нужен живой JMX.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": false }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 41 },
+      "id": 13,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "jvm_process_cpu_load{job=\"jmx\"} * 100",
+          "legendFormat": "{{broker}} process",
+          "refId": "A"
+        },
+        {
+          "expr": "jvm_system_cpu_load{job=\"jmx\"} * 100",
+          "legendFormat": "{{broker}} system",
+          "refId": "B"
+        }
+      ],
+      "title": "Broker: CPU %",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Heap JVM (used / committed / max). Сравни с -Xmx512m.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": false }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 41 },
+      "id": 14,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "jvm_memory_bytes_used{job=\"jmx\",area=\"heap\"}",
+          "legendFormat": "{{broker}} used",
+          "refId": "A"
+        },
+        {
+          "expr": "jvm_memory_bytes_committed{job=\"jmx\",area=\"heap\"}",
+          "legendFormat": "{{broker}} committed",
+          "refId": "B"
+        },
+        {
+          "expr": "jvm_memory_bytes_max{job=\"jmx\",area=\"heap\"}",
+          "legendFormat": "{{broker}} max",
+          "refId": "C"
+        }
+      ],
+      "title": "Broker: heap memory",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 48 },
+      "id": 102,
+      "panels": [],
+      "title": "3. Консьюмеры (load-test-group)",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Суммарный лаг группы. После прогона → ~0.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "fillOpacity": 15, "spanNulls": false }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 49 },
+      "id": 7,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "sum(kafka_consumergroup_lag{consumergroup=\"load-test-group\",topic=\"load-test\"})",
+          "legendFormat": "lag total",
+          "refId": "A"
+        }
+      ],
+      "title": "Consumer: group lag (sum)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Скорость закоммиченной обработки.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": false }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 49 },
+      "id": 8,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(consumer_messages_processed_total[30s]))",
+          "legendFormat": "processed/sec (all)",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(consumer_batches_total[30s]))",
+          "legendFormat": "batches/sec (all)",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(rate(consumer_messages_processed_total[30s])) by (instance)",
+          "legendFormat": "{{instance}} processed/s",
+          "refId": "C"
+        }
+      ],
+      "title": "Consumer: processed / batches",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Размер закоммиченного батча.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": false }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 49 },
+      "id": 9,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(consumer_batch_size_bucket[1m])))",
+          "legendFormat": "p50 batch size",
           "refId": "A"
         },
         {
           "expr": "histogram_quantile(0.99, sum by (le) (rate(consumer_batch_size_bucket[1m])))",
-          "legendFormat": "p99",
+          "legendFormat": "p99 batch size",
           "refId": "B"
         }
       ],
@@ -196,14 +531,64 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 44 },
+      "description": "Лаг по каждой партиции топика load-test. Показывает перекос между партициями (горячая партиция / медленный член группы).",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": false }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 57 },
+      "id": 17,
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["lastNotNull", "max"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "kafka_consumergroup_lag{consumergroup=\"load-test-group\",topic=\"load-test\"}",
+          "legendFormat": "p{{partition}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Consumer: lag by partition",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 66 },
+      "id": 103,
+      "panels": [],
+      "title": "4. End-to-end",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "produced → broker LEO → consumer committed.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": false }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 67 },
       "id": 10,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
       "targets": [
         {
           "expr": "producer_messages_produced_total",
           "legendFormat": "produced (cumulative)",
           "refId": "A"
+        },
+        {
+          "expr": "producer_messages_acked_total",
+          "legendFormat": "broker acked",
+          "refId": "D"
         },
         {
           "expr": "sum(kafka_topic_partition_current_offset{topic=\"load-test\"})",
@@ -216,18 +601,18 @@
           "refId": "C"
         }
       ],
-      "title": "End-to-end: produced → broker → consumer",
+      "title": "End-to-end: produced → acked → broker → consumer",
       "type": "timeseries"
     }
   ],
   "refresh": "5s",
   "schemaVersion": 39,
-  "tags": ["kafka", "load-test"],
+  "tags": ["kafka", "load-test", "experiments"],
   "templating": { "list": [] },
   "time": { "from": "now-15m", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
   "title": "Kafka load-test",
   "uid": "kafka-load-test",
-  "version": 1
+  "version": 4
 }

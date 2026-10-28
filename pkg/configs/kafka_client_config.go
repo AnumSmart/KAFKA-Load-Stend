@@ -12,10 +12,10 @@ import (
 )
 
 const (
-	defaultMessageTemplate       = "привет - я сообщение #%d"
-	defaultMetricsAddr           = ":8081"
-	defaultConsumerMetricsAddr   = ":8082"
-	defaultTopic                 = "load-test"
+	defaultMessageTemplate     = "привет - я сообщение #%d"
+	defaultMetricsAddr         = ":8081"
+	defaultConsumerMetricsAddr = ":8082"
+	defaultTopic               = "load-test"
 )
 
 // KafkaClientConfig — общий конфиг Kafka-клиента для продюсера и консьюмера.
@@ -42,7 +42,9 @@ type ProducerConfig struct {
 	DisableIdempotency bool     `yaml:"disable_idempotency"`
 	MessageCount       int64    `yaml:"message_count"`
 	MessageTemplate    string   `yaml:"message_template"`
-	MetricsAddr        string   `yaml:"metrics_addr"`
+	// MessageBytes — длина value. 0 оставляет MessageTemplate.
+	MessageBytes int    `yaml:"message_bytes"`
+	MetricsAddr  string `yaml:"metrics_addr"`
 	// MetricsHold — пауза после Flush, чтобы Prometheus успел снять метрики.
 	MetricsHold Duration `yaml:"metrics_hold"`
 }
@@ -86,7 +88,7 @@ func DefaultKafkaClientConfig() *KafkaClientConfig {
 			MetricsHold:        Duration(20 * time.Second),
 		},
 		Consumer: ConsumerConfig{
-			GroupID:          "load-test-group",
+			GroupID: "load-test-group",
 			// earliest: при новой группе не теряем сообщения, если продюсер
 			// стартовал до завершения join (в отличие от latest + sleep).
 			StartOffset:      "earliest",
@@ -204,6 +206,14 @@ func ApplyProducerEnvOverrides(cfg *KafkaClientConfig) error {
 			cfg.Producer.MessageCount = n
 		}
 	}
+	if v := os.Getenv("PRODUCER_MESSAGE_BYTES"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("PRODUCER_MESSAGE_BYTES=%q: %w", v, err))
+		} else {
+			cfg.Producer.MessageBytes = n
+		}
+	}
 	if v := os.Getenv("PRODUCER_COMPRESSION"); v != "" {
 		cfg.Producer.Compression = v
 	}
@@ -272,6 +282,9 @@ func (c *KafkaClientConfig) Validate() error {
 	}
 	if c.Producer.MessageTemplate == "" {
 		c.Producer.MessageTemplate = defaultMessageTemplate
+	}
+	if c.Producer.MessageBytes < 0 {
+		return fmt.Errorf("message_bytes must be >= 0")
 	}
 	if c.Producer.MetricsAddr == "" {
 		c.Producer.MetricsAddr = defaultMetricsAddr

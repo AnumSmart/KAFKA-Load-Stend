@@ -13,6 +13,9 @@ producer:
   disable_idempotency: true
   message_count: 100000
   message_template: 'привет - я сообщение #%d'
+  # 0 — длина value из message_template. Иначе value ровно message_bytes байт.
+  # Переопределяется через PRODUCER_MESSAGE_BYTES.
+  message_bytes: 0
   metrics_addr: ':8081'
   # Пауза после Flush, чтобы Prometheus (scrape 5s) успел снять метрики.
   # 0s — выйти сразу. Переопределяется через PRODUCER_METRICS_HOLD.

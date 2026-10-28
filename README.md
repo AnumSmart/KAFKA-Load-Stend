@@ -79,6 +79,15 @@ MESSAGE_COUNT=10000 make producer
 | `make infra`           | Только инфра: брокеры, топик, экспортеры, Prometheus, Grafana, UI   |
 | `make consumers`       | Поднять (или перезапустить) только три реплики консьюмера           |
 | `make producer`        | Прогнать один продюсер (`docker compose run --rm --service-ports`)  |
+| `make exp-baseline`    | Эксперимент 1: baseline (после `make infra`)                         |
+| `make exp-linger-100`  | Эксперимент 2: linger 100 ms                                         |
+| `make exp-linger-200`  | Эксперимент 3: linger 200 ms                                         |
+| `make exp-batch-2mb`   | Эксперимент 4: batch 2 MB                                            |
+| `make exp-acks-all`    | Эксперимент 5: `required_acks=all`                                   |
+| `make exp-idempotent`  | Эксперимент 6: идемпотентный продюсер                                |
+| `make exp-partitions-12` | Эксперимент 7: топик до 12 партиций, затем baseline-прогон         |
+| `make exp-messages-700k` | Эксперимент 8: 700 000 сообщений                                 |
+| `make exp-message-30kb` | Эксперимент 9: 100 000 сообщений по 30 КБ несжатых              |
 | `make load`            | Поднять консьюмеров + прогнать продюсера (требует `make infra`)     |
 | `make status`          | `docker compose ps`                                                 |
 | `make topic-describe`  | Описание топика `load-test`                                         |
@@ -145,7 +154,21 @@ NUM_NETWORK_THREADS до cpus + 1 и heap до 1–2 ГБ
 
 Меняйте один параметр за прогон. Остальное фиксируйте.
 
-Через env (удобнее, чем править YAML). Значения по умолчанию берутся из
+После `make infra` каждый прогон — отдельная цель. Она поднимает консьюмеры
+и передаёт полный baseline в контейнер продюсера, меняя только свой параметр.
+Таблица и смысл строк: [docs/experiments.md](docs/experiments.md).
+
+```powershell
+make infra
+make exp-baseline
+make exp-linger-100
+```
+
+`make exp-partitions-12` увеличивает партиции `load-test` до 12. Это не
+откатывается до удаления томов, поэтому его лучше гонять последним.
+
+Те же параметры можно задать через env, без отдельных целей. Значения по
+умолчанию берутся из
 deployments/.env.example (Makefile передаёт --env-file deployments/.env.example);
 переменные на команду (MESSAGE_COUNT=10000 make producer) переопределяют их:
 
@@ -162,6 +185,7 @@ deployments/.env.example (Makefile передаёт --env-file deployments/.env.
 | `CONSUMER_METRICS_ADDR`          | `:8082`            | Адрес `/metrics` консьюмера                |
 | `CONSUMER_START_OFFSET`          | `earliest`         | Старт новой группы: `earliest`/`latest`    |
 | `MESSAGE_COUNT`                  | `100000`           | Число сообщений                            |
+| `PRODUCER_MESSAGE_BYTES`     | `30720`            | Длина value до сжатия, байт. `0` — шаблон  |
 | `TOPIC_NAME`                     | `load-test`        | Имя топика                                 |
 | `TOPIC_PARTITIONS`               | `6`                | Число партиций (только при создании)       |
 | `TOPIC_RF`                       | `3`                | Replication factor (только при создании)   |

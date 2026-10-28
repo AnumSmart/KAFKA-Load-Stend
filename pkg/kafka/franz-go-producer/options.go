@@ -7,14 +7,14 @@ import (
 
 // ProducerOptions — настройки прогона, не связанные с kgo.Client.
 //
-// ExpectedTotal удалён намеренно: это был дубль MessageCount, который
-// Validate перезаписывал молча. Раньше можно было получить рассинхрон —
-// продюсер отправлял MessageCount, а финальная проверка в Run сравнивала
-// acked с ExpectedTotal. Теперь единственный источник истины — MessageCount.
+// Eдинственный источник истины — MessageCount.
 type ProducerOptions struct {
 	Topic           string
 	MessageCount    int64
 	MessageTemplate string
+	// MessageBytes — длина value в байтах. 0 — значение берётся из
+	// MessageTemplate. Больше нуля — фиксированный payload этого размера.
+	MessageBytes int
 	// MetricsHold — сколько держать процесс после Flush, чтобы Prometheus
 	// успел снять метрики (scrape_interval обычно 5s). 0 — не ждать.
 	MetricsHold time.Duration
@@ -41,6 +41,9 @@ func (o *ProducerOptions) Validate() error {
 	}
 	if o.MessageTemplate == "" {
 		o.MessageTemplate = "привет - я сообщение #%d"
+	}
+	if o.MessageBytes < 0 {
+		return fmt.Errorf("message_bytes must be >= 0")
 	}
 	if o.MetricsHold < 0 {
 		o.MetricsHold = 20 * time.Second

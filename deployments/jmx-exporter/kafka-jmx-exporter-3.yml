@@ -1,9 +1,10 @@
 jmxUrl: service:jmx:rmi:///jndi/rmi://kafka3:9999/jmxrmi
 lowercaseOutputName: true
 lowercaseOutputLabelNames: true
-whitelistObjectNames:
+includeObjectNames:
   - kafka.server:type=BrokerTopicMetrics,*
-  - kafka.network:type=RequestMetrics,*
+  - java.lang:type=Memory
+  - java.lang:type=OperatingSystem
 rules:
   - pattern: kafka.server<type=BrokerTopicMetrics, name=MessagesInPerSec><>OneMinuteRate
     name: kafka_server_brokertopicmetrics_messagesinpersec_oneminuterate
@@ -14,13 +15,24 @@ rules:
   - pattern: kafka.server<type=BrokerTopicMetrics, name=BytesOutPerSec><>OneMinuteRate
     name: kafka_server_brokertopicmetrics_bytesoutpersec_oneminuterate
     type: GAUGE
-  - pattern: kafka.network<type=RequestMetrics, name=RequestQueueTimeMs, request=(.+)><>Mean
-    name: kafka_network_requestmetrics_requestqueuetimems_mean
+  - pattern: 'java.lang<type=Memory><HeapMemoryUsage>used'
+    name: jvm_memory_bytes_used
     labels:
-      request: "$1"
+      area: heap
     type: GAUGE
-  - pattern: kafka.network<type=RequestMetrics, name=LocalTimeMs, request=(.+)><>Mean
-    name: kafka_network_requestmetrics_localtimems_mean
+  - pattern: 'java.lang<type=Memory><HeapMemoryUsage>committed'
+    name: jvm_memory_bytes_committed
     labels:
-      request: "$1"
+      area: heap
+    type: GAUGE
+  - pattern: 'java.lang<type=Memory><HeapMemoryUsage>max'
+    name: jvm_memory_bytes_max
+    labels:
+      area: heap
+    type: GAUGE
+  - pattern: 'java.lang<type=OperatingSystem><>ProcessCpuLoad'
+    name: jvm_process_cpu_load
+    type: GAUGE
+  - pattern: 'java.lang<type=OperatingSystem><>SystemCpuLoad'
+    name: jvm_system_cpu_load
     type: GAUGE

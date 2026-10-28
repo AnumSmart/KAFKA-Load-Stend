@@ -92,6 +92,40 @@ func TestNewBaseProducerRequiresClient(t *testing.T) {
 	}
 }
 
+func TestRunUsesFixedMessageBytes(t *testing.T) {
+	var got int
+	client := &mockClient{
+		produceFn: func(_ context.Context, r *kgo.Record, promise func(*kgo.Record, error)) {
+			got = len(r.Value)
+			promise(r, nil)
+		},
+	}
+	opts := &ProducerOptions{
+		Topic:        "load-test",
+		MessageCount: 2,
+		MessageBytes: 102400,
+		MetricsHold:  0,
+	}
+
+	p, err := NewBaseProducer(client, opts, silentLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got != 102400 {
+		t.Fatalf("value length = %d, want 102400", got)
+	}
+}
+
+func TestValidateRejectsNegativeMessageBytes(t *testing.T) {
+	opts := &ProducerOptions{Topic: "t", MessageCount: 1, MessageBytes: -1}
+	if err := opts.Validate(); err == nil {
+		t.Fatal("expected error for message_bytes < 0")
+	}
+}
+
 func TestValidateRejectsZeroMessageCount(t *testing.T) {
 	opts := &ProducerOptions{Topic: "t", MessageCount: 0}
 	if err := opts.Validate(); err == nil {

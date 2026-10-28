@@ -149,6 +149,7 @@ func TestApplyProducerEnvOverridesInvalid(t *testing.T) {
 		{"batch", "PRODUCER_BATCH_MAX_BYTES", "not-a-number"},
 		{"disable_idempotency", "PRODUCER_DISABLE_IDEMPOTENCY", "maybe"},
 		{"message_count", "MESSAGE_COUNT", "not-a-number"},
+		{"message_bytes", "PRODUCER_MESSAGE_BYTES", "nope"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -254,6 +255,18 @@ func TestApplyProducerEnvOverridesMaxBufferedAndHold(t *testing.T) {
 	}
 	if cfg.Producer.MetricsHold.Duration() != 15*time.Second {
 		t.Fatalf("metrics_hold = %s", cfg.Producer.MetricsHold)
+	}
+}
+
+func TestApplyProducerEnvOverridesMessageBytes(t *testing.T) {
+	t.Setenv("PRODUCER_MESSAGE_BYTES", "102400")
+
+	cfg := DefaultKafkaClientConfig()
+	if err := ApplyProducerEnvOverrides(cfg); err != nil {
+		t.Fatalf("ApplyProducerEnvOverrides: %v", err)
+	}
+	if cfg.Producer.MessageBytes != 102400 {
+		t.Fatalf("message_bytes = %d", cfg.Producer.MessageBytes)
 	}
 }
 
