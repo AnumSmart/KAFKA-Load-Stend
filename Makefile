@@ -37,7 +37,7 @@ LINT_CONFIG = .golangci.yml
 # Baseline прогона — те же значения, что в apps/kafka-producer/configs-yml/producer.yml.
 # Каждая цель exp-* передаёт полный набор, чтобы переменные из оболочки
 # не смешали два соседних эксперимента.
-EXP_MESSAGE_COUNT = 100000
+EXP_MESSAGE_COUNT = 1000000
 EXP_MESSAGE_COUNT_700K = 700000
 # 30 КБ = 30 * 1024 байт несжатого value. В остальных прогонах message_bytes = 0.
 EXP_MESSAGE_30KB = 30720

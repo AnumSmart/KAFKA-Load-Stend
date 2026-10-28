@@ -137,8 +137,7 @@ func (p *BaseProducer) Run(ctx context.Context) error {
 		"avg_msg_sec", int64(avg),
 	)
 
-	// Единственный источник истины теперь MessageCount — ExpectedTotal
-	// удалён в этом PR, чтобы не было двух разных цифр.
+	// Единственный источник истины теперь MessageCount
 	if acked != p.options.MessageCount {
 		p.logger.Warn("acked count differs from expected",
 			"acked", acked,

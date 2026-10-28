@@ -7,10 +7,7 @@ import (
 
 // ProducerOptions — настройки прогона, не связанные с kgo.Client.
 //
-// ExpectedTotal удалён намеренно: это был дубль MessageCount, который
-// Validate перезаписывал молча. Раньше можно было получить рассинхрон —
-// продюсер отправлял MessageCount, а финальная проверка в Run сравнивала
-// acked с ExpectedTotal. Теперь единственный источник истины — MessageCount.
+// Eдинственный источник истины — MessageCount.
 type ProducerOptions struct {
 	Topic           string
 	MessageCount    int64

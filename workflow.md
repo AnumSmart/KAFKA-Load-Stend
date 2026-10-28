@@ -1,8 +1,6 @@
 # Workflow: старт → метрики → остановка
 
-Пошаговая инструкция для первого запуска стенда. Рассчитана на джуна:
-делай шаги **по порядку**, не перескакивай. Если что-то не сходится —
-смотри раздел «Если что-то пошло не так» в конце.
+Пошаговая инструкция для первого запуска стенда.
 
 Рабочая директория всех команд — **корень репозитория** `Kafka_stend_go`
 (там, где лежат `Makefile`, `go.work`, `deployments/`).
@@ -11,13 +9,13 @@
 
 ## 0. Что ты запускаешь (коротко)
 
-| Компонент | Зачем |
-| --------- | ----- |
-| 3 брокера Kafka | Хранят топик `load-test` (6 партиций) |
-| 3 консьюмера | Одна группа `load-test-group`, читают сообщения |
-| 1 продюсер | Шлёт ~100 000 сообщений и выходит |
-| Prometheus + Grafana | Собирают и показывают метрики |
-| Kafka UI | Смотреть топик/группу глазами |
+| Компонент            | Зачем                                           |
+| -------------------- | ----------------------------------------------- |
+| 3 брокера Kafka      | Хранят топик `load-test` (6 партиций)           |
+| 3 консьюмера         | Одна группа `load-test-group`, читают сообщения |
+| 1 продюсер           | Шлёт ~100 000 сообщений и выходит               |
+| Prometheus + Grafana | Собирают и показывают метрики                   |
+| Kafka UI             | Смотреть топик/группу глазами                   |
 
 Продюсер после отправки **не крутится вечно**: отработал → подержал
 `/metrics` ~20 секунд → контейнер остановился. Консьюмеры продолжают жить.
@@ -29,7 +27,7 @@
 ### Шаг 1.1. Убедись, что Docker запущен
 
 1. Открой **Docker Desktop**.
-2. Дождись статуса вроде *Engine running* / зелёный индикатор.
+2. Дождись статуса вроде _Engine running_ / зелёный индикатор.
 3. В терминале проверь:
 
 ```powershell
@@ -113,13 +111,13 @@ docker compose -f deployments/docker-compose.yml --env-file deployments/.env.exa
 
 **Как читать вывод:**
 
-| Сервис | Нормально |
-| ------ | --------- |
-| `kafka1` / `kafka2` / `kafka3` | `Up` / `healthy` |
-| `consumer-1` / `2` / `3` | `Up` |
-| `prometheus`, `grafana`, `kafka-ui` | `Up` |
-| `producer` | Часто уже `Exited (0)` — это **нормально** (прогон закончился) |
-| `kafka-init` | `Exited (0)` — тоже нормально |
+| Сервис                              | Нормально                                                      |
+| ----------------------------------- | -------------------------------------------------------------- |
+| `kafka1` / `kafka2` / `kafka3`      | `Up` / `healthy`                                               |
+| `consumer-1` / `2` / `3`            | `Up`                                                           |
+| `prometheus`, `grafana`, `kafka-ui` | `Up`                                                           |
+| `producer`                          | Часто уже `Exited (0)` — это **нормально** (прогон закончился) |
+| `kafka-init`                        | `Exited (0)` — тоже нормально                                  |
 
 Если брокеры не `healthy` — подожди 30–60 секунд и снова `make status`.
 
@@ -234,13 +232,13 @@ make producer
 
 Открой по очереди:
 
-| Кто | URL |
-| --- | --- |
+| Кто                 | URL                           |
+| ------------------- | ----------------------------- |
 | Продюсер (пока жив) | http://localhost:8081/metrics |
-| Консьюмер 1 | http://localhost:8082/metrics |
-| Консьюмер 2 | http://localhost:8083/metrics |
-| Консьюмер 3 | http://localhost:8084/metrics |
-| Kafka Exporter | http://localhost:9308/metrics |
+| Консьюмер 1         | http://localhost:8082/metrics |
+| Консьюмер 2         | http://localhost:8083/metrics |
+| Консьюмер 3         | http://localhost:8084/metrics |
+| Kafka Exporter      | http://localhost:9308/metrics |
 
 На страницах консьюмера ищи строки вроде:
 
@@ -279,7 +277,7 @@ rate(producer_messages_acked_total[15s])
 
 ### Шаг 4.4. Grafana (основной способ смотреть нагрузку)
 
-1. Открой http://localhost:3000  
+1. Открой http://localhost:3000
 2. Логин / пароль: `admin` / `admin`  
    (при первом входе Grafana может попросить сменить пароль — можно Skip).
 3. Слева: **Dashboards** (иконка квадратов) → папка **Kafka Stend**.
@@ -288,21 +286,21 @@ rate(producer_messages_acked_total[15s])
 
 **Что смотреть на дашборде:**
 
-| Панель (по смыслу) | Норма после `make producer` |
-| ------------------ | --------------------------- |
-| MessagesIn / throughput | Всплеск на время прогона |
+| Панель (по смыслу)               | Норма после `make producer`                 |
+| -------------------------------- | ------------------------------------------- |
+| MessagesIn / throughput          | Всплеск на время прогона                    |
 | Consumer lag (`load-test-group`) | Растёт во время отправки, потом падает к ~0 |
-| Consumer processed / batch size | Рост counters, гистограмма батчей |
-| Producer acked / errors | Всплеск acked; errors ≈ 0 |
-| Targets health | Консьюмеры зелёные |
+| Consumer processed / batch size  | Рост counters, гистограмма батчей           |
+| Producer acked / errors          | Всплеск acked; errors ≈ 0                   |
+| Targets health                   | Консьюмеры зелёные                          |
 
 Анонимный просмотр (Viewer) тоже включён — можно зайти без логина, но
 для спокойствия используй `admin`/`admin`.
 
 ### Шаг 4.5. Kafka UI (не метрики, а «что в Kafka»)
 
-1. Открой http://localhost:8080  
-2. Кластер: `local`  
+1. Открой http://localhost:8080
+2. Кластер: `local`
 3. Посмотри:
    - Topics → `load-test` (сообщения, партиции)
    - Consumers → группа `load-test-group` (members, lag, offsets)
@@ -364,20 +362,20 @@ make infra-down
 
 ---
 
-## 6. Типичный день джуна (чек-лист)
+## 6. Типичный день (чек-лист)
 
 Скопируй и отмечай:
 
-1. [ ] Docker Desktop запущен  
-2. [ ] `cd` в корень `Kafka_stend_go`  
-3. [ ] `make up`  
-4. [ ] `make status` — брокеры healthy, консьюмеры Up  
-5. [ ] `make topic-describe` — 6 партиций, RF=3  
-6. [ ] http://localhost:9090/targets — consumer UP  
-7. [ ] http://localhost:3000 → дашборд `Kafka load-test`  
-8. [ ] (по желанию) `make producer` — второй прогон, смотри графики  
-9. [ ] http://localhost:8080 — группа `load-test-group`  
-10. [ ] `make down` — ушёл домой / закончил работу  
+1. [ ] Docker Desktop запущен
+2. [ ] `cd` в корень `Kafka_stend_go`
+3. [ ] `make up`
+4. [ ] `make status` — брокеры healthy, консьюмеры Up
+5. [ ] `make topic-describe` — 6 партиций, RF=3
+6. [ ] http://localhost:9090/targets — consumer UP
+7. [ ] http://localhost:3000 → дашборд `Kafka load-test`
+8. [ ] (по желанию) `make producer` — второй прогон, смотри графики
+9. [ ] http://localhost:8080 — группа `load-test-group`
+10. [ ] `make down` — ушёл домой / закончил работу
 
 ---
 
@@ -390,7 +388,7 @@ make infra-down
 
 ### `make up` падает / брокеры не healthy
 
-1. Подожди минуту, `make status`.  
+1. Подожди минуту, `make status`.
 2. Логи брокера:
 
 ```powershell
@@ -406,8 +404,8 @@ docker compose -f deployments/docker-compose.yml --env-file deployments/.env.exa
 
 ### Лаг не падает в ноль
 
-- Консьюмеры не Up → `make status` / `make logs`.  
-- Смотри не ту группу → фильтр должен быть `load-test-group`.  
+- Консьюмеры не Up → `make status` / `make logs`.
+- Смотри не ту группу → фильтр должен быть `load-test-group`.
 - После смены группы offsets «с нуля» — нормально для новой group id.
 
 ### JMX красный, BytesIn пустые
@@ -424,11 +422,11 @@ MessagesIn на дашборде должен уметь fallback через Kaf
 
 ## 8. Куда смотреть дальше
 
-| Файл | Содержание |
-| ---- | ---------- |
-| `start.md` | Краткая шпаргалка по командам и эндпоинтам |
-| `README.md` | Обзор стенда, env-переменные, лимиты CPU |
-| `docs/experiments.md` | Таблица экспериментов (менять по одному параметру) |
-| `observability_prompt.md` | Что уже сделано по метрикам |
+| Файл                      | Содержание                                         |
+| ------------------------- | -------------------------------------------------- |
+| `start.md`                | Краткая шпаргалка по командам и эндпоинтам         |
+| `README.md`               | Обзор стенда, env-переменные, лимиты CPU           |
+| `docs/experiments.md`     | Таблица экспериментов (менять по одному параметру) |
+| `observability_prompt.md` | Что уже сделано по метрикам                        |
 
 Удачного прогона.

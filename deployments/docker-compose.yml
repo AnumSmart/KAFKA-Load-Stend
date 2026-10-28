@@ -162,7 +162,9 @@ services:
       - |
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka1:19092 \
           --create --if-not-exists --topic ${TOPIC_NAME:-load-test} \
-          --partitions ${TOPIC_PARTITIONS:-6} --replication-factor ${TOPIC_RF:-3}
+          --partitions ${TOPIC_PARTITIONS:-6} \
+          --replication-factor ${TOPIC_RF:-3} \
+          --config min.insync.replicas=${TOPIC_MIN_ISR:-2}
         echo "topic ${TOPIC_NAME:-load-test} is ready"
     # Самый низкий приоритет: одноразовый контейнер не должен отбирать CPU у брокеров
     cpu_shares: 128
